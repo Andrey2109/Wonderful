@@ -1,5 +1,5 @@
 package main
 
 func main() {
-	loadEnvVariables()
+	config := loadEnvVariables()
 }

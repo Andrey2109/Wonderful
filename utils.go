@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -25,6 +24,5 @@ func loadEnvVariables() Config {
 	if config.APIKey == "" {
 		log.Fatal("API_KEY is required")
 	}
-	fmt.Println(config)
 	return config
 }
