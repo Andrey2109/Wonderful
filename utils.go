@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -66,6 +68,7 @@ func (c *WSClient) readLoop(ctx context.Context) {
 			log.Printf("read: %v", err)
 			return
 		}
+		c.handleEvent(msg)
 		if c.Debug {
 			log.Printf("event: %s", string(msg))
 		}
@@ -94,4 +97,28 @@ func (c *WSClient) sendResponseCreate(instructions string) error {
 		"type":     "response.create",
 		"response": resp,
 	})
+}
+func (c *WSClient) handleEvent(msg []byte) {
+	var head struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(msg, &head); err != nil {
+		log.Printf("json err: %v", err)
+		return
+	}
+	switch head.Type {
+	case "response.text.delta":
+		var e struct {
+			Type  string `json:"type"`
+			Delta string `json:"delta"`
+		}
+		_ = json.Unmarshal(msg, &e)
+		fmt.Print(e.Delta)
+	case "response.text.done":
+		fmt.Println()
+	default:
+		if c.Debug {
+			log.Printf("UNHANDLED: %s", string(msg))
+		}
+	}
 }
