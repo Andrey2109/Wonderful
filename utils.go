@@ -53,6 +53,21 @@ func (c *WSClient) sendSessionUpdate() error {
 			"modalities":   []string{"text"},
 			"temperature":  0.7,
 			"instructions": c.Instructions,
+			"tools": []any{
+				map[string]any{
+					"type":        "function",
+					"name":        "multiply",
+					"description": "Multiply two numbers and return the product.",
+					"parameters": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"a": map[string]any{"type": "number"},
+							"b": map[string]any{"type": "number"},
+						},
+						"required": []string{"a", "b"},
+					},
+				},
+			},
 		},
 	}
 	return c.writeJSON(payload)
