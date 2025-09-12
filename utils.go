@@ -149,6 +149,18 @@ func (c *WSClient) handleEvent(msg []byte) {
 				}
 			}
 		}
+	case "response.function_call_arguments.delta":
+		var e struct {
+			Type   string `json:"type"`
+			CallID string `json:"call_id"`
+			Delta  string `json:"delta"`
+		}
+		_ = json.Unmarshal(msg, &e)
+		if _, ok := c.funcArgBuf[e.CallID]; !ok {
+			c.funcArgBuf[e.CallID] = &strings.Builder{}
+		}
+		c.funcArgBuf[e.CallID].WriteString(e.Delta)
+
 	default:
 		if c.Debug {
 			log.Printf("UNHANDLED: %s", string(msg))
