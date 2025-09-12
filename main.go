@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -45,4 +49,12 @@ func main() {
 		log.Fatalf("session.update failed: %v", err)
 	}
 	log.Println("session.update sent")
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	go client.readLoop(ctx)
+
+	<-ctx.Done()
+	log.Println("Shutting down")
 }

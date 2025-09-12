@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
@@ -52,4 +53,21 @@ func (c *WSClient) sendSessionUpdate() error {
 		},
 	}
 	return c.writeJSON(payload)
+}
+func (c *WSClient) readLoop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		_, msg, err := c.Conn.ReadMessage()
+		if err != nil {
+			log.Printf("read: %v", err)
+			return
+		}
+		if c.Debug {
+			log.Printf("event: %s", string(msg))
+		}
+	}
 }
