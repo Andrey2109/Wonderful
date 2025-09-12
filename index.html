@@ -1,0 +1,42 @@
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Go Gorilla WebSocket Client</title>
+    </head>
+    <body>
+        <h1>WebSocket Client</h1>
+        <input type="text" id="messageInput" placeholder="Enter message">
+        <button onclick="sendMessage()">Send</button>
+        <div id="messages"></div>
+
+        <script>
+            const socket = new WebSocket("ws://localhost:8080/ws");
+            const messageInput = document.getElementById("messageInput");
+            const messagesDiv = document.getElementById("messages");
+
+            socket.onopen = function(event) {
+                messagesDiv.innerHTML += "<p>Connected to WebSocket server.</p>";
+            };
+
+            socket.onmessage = function(event) {
+                messagesDiv.innerHTML += `<p>Received: ${event.data}</p>`;
+            };
+
+            socket.onclose = function(event) {
+                messagesDiv.innerHTML += "<p>Disconnected from WebSocket server.</p>";
+            };
+
+            socket.onerror = function(error) {
+                messagesDiv.innerHTML += `<p>WebSocket Error: ${error}</p>`;
+            };
+
+            function sendMessage() {
+                const message = messageInput.value;
+                if (message) {
+                    socket.send(message);
+                    messageInput.value = "";
+                }
+            }
+        </script>
+    </body>
+    </html>
