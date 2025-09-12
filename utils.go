@@ -18,11 +18,11 @@ func loadEnvVariables() Config {
 	}
 
 	config := Config{
-		APIKey: os.Getenv("API_KEY"),
+		APIKey: os.Getenv("OPENAI_API_KEY"),
 	}
 
 	if config.APIKey == "" {
-		log.Fatal("API_KEY is required")
+		log.Fatal("OPENAI_API_KEY is required")
 	}
 	return config
 }
