@@ -3,12 +3,20 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	APIKey string
+	APIKey       string
+	Instructions string
+}
+type WSClient struct {
+	Conn         *websocket.Conn
+	Debug        bool
+	Instructions string
 }
 
 func loadEnvVariables() Config {
@@ -24,5 +32,24 @@ func loadEnvVariables() Config {
 	if config.APIKey == "" {
 		log.Fatal("OPENAI_API_KEY is required")
 	}
+	if config.Instructions == "" {
+		config.Instructions = "You are a concise CLI assistant."
+	}
 	return config
+}
+func (c *WSClient) writeJSON(v any) error {
+	c.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	return c.Conn.WriteJSON(v)
+}
+
+func (c *WSClient) sendSessionUpdate() error {
+	payload := map[string]any{
+		"type": "session.update",
+		"session": map[string]any{
+			"modalities":   []string{"text"},
+			"temperature":  0.3,
+			"instructions": c.Instructions,
+		},
+	}
+	return c.writeJSON(payload)
 }
