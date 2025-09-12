@@ -84,3 +84,14 @@ func (c *WSClient) sendUserText(text string) error {
 		"item": item,
 	})
 }
+
+func (c *WSClient) sendResponseCreate(instructions string) error {
+	resp := map[string]any{}
+	if instructions != "" {
+		resp["instructions"] = instructions
+	}
+	return c.writeJSON(map[string]any{
+		"type":     "response.create",
+		"response": resp,
+	})
+}

@@ -81,5 +81,9 @@ func main() {
 			log.Printf("send user text: %v", err)
 			continue
 		}
+		if err := client.sendResponseCreate(""); err != nil {
+			log.Printf("response.create: %v", err)
+			continue
+		}
 	}
 }
