@@ -71,3 +71,16 @@ func (c *WSClient) readLoop(ctx context.Context) {
 		}
 	}
 }
+func (c *WSClient) sendUserText(text string) error {
+	item := map[string]any{
+		"type": "message",
+		"role": "user",
+		"content": []any{
+			map[string]any{"type": "input_text", "text": text},
+		},
+	}
+	return c.writeJSON(map[string]any{
+		"type": "conversation.item.create",
+		"item": item,
+	})
+}

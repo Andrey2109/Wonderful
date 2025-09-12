@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -55,6 +57,29 @@ func main() {
 
 	go client.readLoop(ctx)
 
-	<-ctx.Done()
-	log.Println("Shutting down")
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Type a message. Ctrl+C to exit.")
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Shutting down")
+			return
+		default:
+		}
+
+		fmt.Print("> ")
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			log.Printf("stdin: %v", err)
+			return
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if err := client.sendUserText(line); err != nil {
+			log.Printf("send user text: %v", err)
+			continue
+		}
+	}
 }
