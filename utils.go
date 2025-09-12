@@ -211,6 +211,9 @@ func (c *WSClient) handleEvent(msg []byte) {
 
 		_ = c.sendFunctionResult(e.CallID, out)
 		_ = c.sendResponseCreate("Use the tool result to answer the user.")
+	case "response.done":
+		fmt.Println()
+
 	default:
 		if c.Debug {
 			log.Printf("UNHANDLED: %s", string(msg))
