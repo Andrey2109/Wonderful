@@ -119,6 +119,34 @@ func (c *WSClient) sendResponseCreate(instructions string) error {
 		"response": resp,
 	})
 }
+
+func (c *WSClient) sendFunctionResult(callID string, output any) error {
+	b, _ := json.Marshal(output)
+	return c.writeJSON(map[string]any{
+		"type": "conversation.item.create",
+		"item": map[string]any{
+			"type":    "function_call_output",
+			"call_id": callID,
+			"output":  string(b),
+		},
+	})
+}
+
+func executeLocalFunction(name, argsJSON string) (any, error) {
+	fmt.Println("executed multiply function")
+	if name != "multiply" {
+		return map[string]any{"error": "unknown function", "name": name}, nil
+	}
+	var args struct {
+		A float64 `json:"a"`
+		B float64 `json:"b"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return nil, fmt.Errorf("bad args: %w", err)
+	}
+	return map[string]any{"result": args.A * args.B}, nil
+}
+
 func (c *WSClient) handleEvent(msg []byte) {
 	var head struct {
 		Type string `json:"type"`
@@ -160,7 +188,28 @@ func (c *WSClient) handleEvent(msg []byte) {
 			c.funcArgBuf[e.CallID] = &strings.Builder{}
 		}
 		c.funcArgBuf[e.CallID].WriteString(e.Delta)
+	case "response.function_call_arguments.done":
+		var e struct {
+			Type   string `json:"type"`
+			CallID string `json:"call_id"`
+		}
+		_ = json.Unmarshal(msg, &e)
+		buf := ""
+		if b, ok := c.funcArgBuf[e.CallID]; ok {
+			buf = b.String()
+		}
+		fn := c.pendingFuncNames[e.CallID]
+		if fn == "" {
+			fn = "multiply"
+		}
 
+		out, err := executeLocalFunction(fn, buf)
+		if err != nil {
+			out = map[string]any{"error": err.Error()}
+		}
+
+		_ = c.sendFunctionResult(e.CallID, out)
+		_ = c.sendResponseCreate("Use the tool result to answer the user.")
 	default:
 		if c.Debug {
 			log.Printf("UNHANDLED: %s", string(msg))
