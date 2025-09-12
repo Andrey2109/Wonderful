@@ -4,20 +4,38 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
+	"time"
+
+	"github.com/gorilla/websocket"
 )
 
-const defaultModel = "gpt-4o-mini-realtime-preview-pt-realtime-2025-08-28"
+const defaultModel = "gpt-4o-mini-realtime-preview-2024-12-17"
 
 func main() {
 	cfg := loadEnvVariables()
-	_ = cfg
 	model := flag.String("model", defaultModel, "OpenAI Realtime model id")
 	debug := flag.Bool("debug", false, "print raw events")
 	flag.Parse()
 
-	fmt.Println("Model:", *model)
-	if *debug {
-		log.Println("Debug mode enabled")
+	url := "wss://api.openai.com/v1/realtime?model=" + *model
+
+	header := http.Header{}
+	header.Set("Authorization", "Bearer "+cfg.APIKey)
+	header.Set("OpenAI-Beta", "realtime=v1")
+
+	dialer := websocket.Dialer{HandshakeTimeout: 15 * time.Second}
+	conn, resp, err := dialer.Dial(url, header)
+	if err != nil {
+		if resp != nil {
+			log.Printf("handshake failed: status=%d", resp.StatusCode)
+		}
+		log.Fatalf("dial failed: %v", err)
 	}
-	log.Println("Env OK")
+	defer conn.Close()
+
+	fmt.Println("Connected to", url)
+	if *debug {
+		log.Println("WS connected, ready to send session")
+	}
 }
