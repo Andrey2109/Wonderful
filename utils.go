@@ -133,7 +133,8 @@ func (c *WSClient) sendFunctionResult(callID string, output any) error {
 }
 
 func executeLocalFunction(name, argsJSON string) (any, error) {
-	fmt.Println("executed multiply function")
+	// fmt.Printf("\n=== FUNCTION CALL: %s ===\n", name)
+	// fmt.Printf("Arguments: %s\n", argsJSON)
 	if name != "multiply" {
 		return map[string]any{"error": "unknown function", "name": name}, nil
 	}
