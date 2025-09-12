@@ -45,7 +45,11 @@ func main() {
 		log.Println("WS connected, ready to send session")
 	}
 
-	client := &WSClient{Conn: conn, Debug: *debug, Instructions: cfg.Instructions}
+	client := &WSClient{Conn: conn,
+		Debug:            *debug,
+		Instructions:     cfg.Instructions,
+		funcArgBuf:       map[string]*strings.Builder{},
+		pendingFuncNames: map[string]string{}}
 
 	if err := client.sendSessionUpdate(); err != nil {
 		log.Fatalf("session.update failed: %v", err)

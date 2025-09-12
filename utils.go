@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -17,9 +18,11 @@ type Config struct {
 	Instructions string
 }
 type WSClient struct {
-	Conn         *websocket.Conn
-	Debug        bool
-	Instructions string
+	Conn             *websocket.Conn
+	Debug            bool
+	Instructions     string
+	funcArgBuf       map[string]*strings.Builder
+	pendingFuncNames map[string]string
 }
 
 func loadEnvVariables() Config {
@@ -134,6 +137,18 @@ func (c *WSClient) handleEvent(msg []byte) {
 		fmt.Print(e.Delta)
 	case "response.text.done":
 		fmt.Println()
+	case "response.output_item.added":
+		var e map[string]any
+		_ = json.Unmarshal(msg, &e)
+		if item, ok := e["item"].(map[string]any); ok {
+			if t, _ := item["type"].(string); t == "function_call" {
+				callID, _ := item["call_id"].(string)
+				name, _ := item["name"].(string)
+				if callID != "" && name != "" {
+					c.pendingFuncNames[callID] = name
+				}
+			}
+		}
 	default:
 		if c.Debug {
 			log.Printf("UNHANDLED: %s", string(msg))
