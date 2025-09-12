@@ -29,7 +29,8 @@ func loadEnvVariables() Config {
 	}
 
 	config := Config{
-		APIKey: os.Getenv("OPENAI_API_KEY"),
+		APIKey:       os.Getenv("OPENAI_API_KEY"),
+		Instructions: os.Getenv("INSTRUCTIONS"),
 	}
 
 	if config.APIKey == "" {
@@ -50,7 +51,7 @@ func (c *WSClient) sendSessionUpdate() error {
 		"type": "session.update",
 		"session": map[string]any{
 			"modalities":   []string{"text"},
-			"temperature":  0.3,
+			"temperature":  0.7,
 			"instructions": c.Instructions,
 		},
 	}
@@ -89,7 +90,9 @@ func (c *WSClient) sendUserText(text string) error {
 }
 
 func (c *WSClient) sendResponseCreate(instructions string) error {
-	resp := map[string]any{}
+	resp := map[string]any{
+		"modalities": []string{"text"},
+	}
 	if instructions != "" {
 		resp["instructions"] = instructions
 	}
