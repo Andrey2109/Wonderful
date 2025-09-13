@@ -41,3 +41,11 @@ func setupOpenAIClient(cfg Config, model string, debug bool) (*WSClient, error) 
 
 	return client, nil
 }
+
+func InitializeSession(client *WSClient) error {
+	if err := client.sendSessionUpdate(); err != nil {
+		return fmt.Errorf("session.update failed: %v", err)
+	}
+	log.Println("session.update sent")
+	return nil
+}

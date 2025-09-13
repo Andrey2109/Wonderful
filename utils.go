@@ -28,7 +28,7 @@ type WSClient struct {
 func loadEnvVariables() Config {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatalf("Error loading .env file %v", err)
 	}
 
 	config := Config{

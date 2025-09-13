@@ -25,10 +25,9 @@ func main() {
 		log.Fatalf("failed to setup OpenAI client: %v", err)
 	}
 
-	if err := client.sendSessionUpdate(); err != nil {
-		log.Fatalf("session.update failed: %v", err)
+	if err := InitializeSession(client); err != nil {
+		log.Fatalf("Failed to initialize session: %v", err)
 	}
-	log.Println("session.update sent")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
