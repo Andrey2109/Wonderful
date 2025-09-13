@@ -13,11 +13,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const (
-	ColorReset = "\033[0m"
-	ColorGreen = "\033[32m"
-)
-
 type Config struct {
 	APIKey       string
 	Instructions string
@@ -168,7 +163,7 @@ func (c *WSClient) handleEvent(msg []byte) {
 			Delta string `json:"delta"`
 		}
 		_ = json.Unmarshal(msg, &e)
-		fmt.Print(ColorGreen + e.Delta + ColorReset)
+		fmt.Print(e.Delta)
 	case "response.text.done":
 		fmt.Println()
 	case "response.output_item.added":
