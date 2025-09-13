@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -48,4 +51,42 @@ func InitializeSession(client *WSClient) error {
 	}
 	log.Println("session.update sent")
 	return nil
+}
+
+func RunClientLoop(ctx context.Context, client *WSClient) {
+	go client.readLoop(ctx)
+
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Type a message. Ctrl+C to exit.")
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Shutting down")
+			return
+		default:
+		}
+
+		fmt.Print("> ")
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			log.Printf("stdin: %v", err)
+			return
+		}
+
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if err := client.sendUserText(line); err != nil {
+			log.Printf("send user text: %v", err)
+			continue
+		}
+
+		if err := client.sendResponseCreate(""); err != nil {
+			log.Printf("response.create: %v", err)
+			continue
+		}
+	}
 }
