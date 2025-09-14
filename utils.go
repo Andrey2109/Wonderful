@@ -26,6 +26,7 @@ type WSClient struct {
 }
 
 func readInstructionsFromFile(filename string) (string, error) {
+
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return "", err
