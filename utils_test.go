@@ -5,7 +5,7 @@ import (
 )
 
 func TestLoadEnvVariables(t *testing.T) {
-	c := loadEnvVariables()
+	c := loadEnvVariables(false)
 	if c.APIKey == "" {
 		t.Error("Expected API key to be loaded")
 	}

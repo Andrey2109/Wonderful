@@ -25,15 +25,30 @@ type WSClient struct {
 	pendingFuncNames map[string]string
 }
 
-func loadEnvVariables() Config {
+func readInstructionsFromFile(filename string) (string, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+func loadEnvVariables(debug bool) Config {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Error loading .env file %v", err)
+		log.Printf("Error loading .env file %v", err)
 	}
 
 	config := Config{
-		APIKey:       os.Getenv("OPENAI_API_KEY"),
-		Instructions: os.Getenv("INSTRUCTIONS"),
+		APIKey: os.Getenv("OPENAI_API_KEY"),
+	}
+
+	instructions, err := readInstructionsFromFile("instructions.txt")
+	if err == nil && instructions != "" {
+		config.Instructions = instructions
+	}
+
+	if debug {
+		log.Printf("The instructions for the model are: %v", config.Instructions)
 	}
 
 	if config.APIKey == "" {

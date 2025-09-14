@@ -12,10 +12,10 @@ import (
 const defaultModel = "gpt-4o-mini-realtime-preview-2024-12-17"
 
 func main() {
-	cfg := loadEnvVariables()
 	model := flag.String("model", defaultModel, "OpenAI Realtime model id")
 	debug := flag.Bool("debug", false, "print raw events")
 	flag.Parse()
+	cfg := loadEnvVariables(*debug)
 
 	client, err := setupOpenAIClient(cfg, *model, *debug)
 	if err != nil {
