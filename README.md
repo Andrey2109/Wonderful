@@ -31,12 +31,12 @@ Application uses a [`.env`](.env ) file for configuration. Create your own file 
 
 ```
 OPENAI_API_KEY=your_openai_api_key_here
-INSTRUCTIONS="Specify here"
 ```
 
 ### Customizing Assistant Instructions
 
-The default instructions, in case env varibale is empty, will be a "You are a concise CLI assistant". **You can modify the `INSTRUCTIONS` variable in the [`.env`](.env ) file** to change the assistant's behavior, personality, or capabilities.
+The assistant's instructions are defined in the `instructions.txt` file in the project root. 
+You can modify this file to change the assistant's behavior, personality, or capabilities.
 
 ## Usage
 
