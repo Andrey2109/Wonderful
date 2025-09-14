@@ -54,6 +54,19 @@ For debugging WebSocket communication:
 go run . -debug=true
 ```
 
+### Running with Docker
+
+You can use the pre-built Docker image:
+
+1. Pull the image:
+   ```bash
+   docker pull andrey2109/wonderful-cli:latest
+   ```
+2. Run the container with your API key:
+   ```bash
+   docker run -it --rm -e OPENAI_API_KEY=your_api_key_here andrey2109/wonderful-cli
+   ```
+
 
 ## Architecture & Design Choices
 
