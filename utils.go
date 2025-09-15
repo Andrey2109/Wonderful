@@ -104,7 +104,7 @@ func (c *WSClient) readLoop(ctx context.Context) {
 		}
 		c.handleEvent(msg)
 		if c.Debug {
-			log.Printf("event: %s", string(msg))
+			// log.Printf("event: %s", string(msg))
 		}
 	}
 }
@@ -147,9 +147,11 @@ func (c *WSClient) sendFunctionResult(callID string, output any) error {
 	})
 }
 
-func executeLocalFunction(name, argsJSON string) (any, error) {
-	// fmt.Printf("\n=== FUNCTION CALL: %s ===\n", name)
-	// fmt.Printf("Arguments: %s\n", argsJSON)
+func executeLocalFunction(name, argsJSON string, debug WSClient) (any, error) {
+	if debug.Debug {
+		fmt.Printf("\n=== FUNCTION CALL: %s ===\n", name)
+		fmt.Printf("Arguments: %s\n", argsJSON)
+	}
 	if name != "multiply" {
 		return map[string]any{"error": "unknown function", "name": name}, nil
 	}
@@ -219,7 +221,7 @@ func (c *WSClient) handleEvent(msg []byte) {
 			fn = "multiply"
 		}
 
-		out, err := executeLocalFunction(fn, buf)
+		out, err := executeLocalFunction(fn, buf, *c)
 		if err != nil {
 			out = map[string]any{"error": err.Error()}
 		}
@@ -231,7 +233,7 @@ func (c *WSClient) handleEvent(msg []byte) {
 
 	default:
 		if c.Debug {
-			log.Printf("UNHANDLED: %s", string(msg))
+			// log.Printf("UNHANDLED: %s", string(msg))
 		}
 	}
 }
