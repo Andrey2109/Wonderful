@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -34,10 +33,10 @@ func readInstructionsFromFile(filename string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 func loadEnvVariables(debug bool) Config {
-	err := godotenv.Load()
-	if err != nil {
-		log.Printf("Error loading .env file %v", err)
-	}
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Printf("Error loading .env file %v", err)
+	// }
 
 	config := Config{
 		APIKey: os.Getenv("OPENAI_API_KEY"),

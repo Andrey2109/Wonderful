@@ -29,8 +29,8 @@ func setupOpenAIClient(cfg Config, model string, debug bool) (*WSClient, error) 
 		return nil, fmt.Errorf("dial failed: %v", err)
 	}
 
-	fmt.Println("Connected to", url)
 	if debug {
+		fmt.Println("Connected to", url)
 		log.Println("WS connected, ready to send session")
 	}
 
@@ -45,11 +45,14 @@ func setupOpenAIClient(cfg Config, model string, debug bool) (*WSClient, error) 
 	return client, nil
 }
 
-func InitializeSession(client *WSClient) error {
+func InitializeSession(client *WSClient, debug bool) error {
 	if err := client.sendSessionUpdate(); err != nil {
 		return fmt.Errorf("session.update failed: %v", err)
 	}
-	log.Println("session.update sent")
+	if debug {
+		log.Println("session.update sent")
+	}
+
 	return nil
 }
 

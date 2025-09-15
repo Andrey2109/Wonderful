@@ -23,7 +23,7 @@ func main() {
 	}
 	defer client.Conn.Close()
 
-	if err := InitializeSession(client); err != nil {
+	if err := InitializeSession(client, *debug); err != nil {
 		log.Fatalf("Failed to initialize session: %v", err)
 	}
 
