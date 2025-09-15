@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -12,8 +13,15 @@ func TestLoadEnvVariables(t *testing.T) {
 }
 
 func TestExecuteLocalFunction(t *testing.T) {
+	client := WSClient{
+		Conn:             nil,
+		Debug:            false,
+		Instructions:     "",
+		funcArgBuf:       map[string]*strings.Builder{},
+		pendingFuncNames: map[string]string{},
+	}
 	// Test case 1: Valid multiplication
-	result, err := executeLocalFunction("multiply", `{"a": 5, "b": 3}`)
+	result, err := executeLocalFunction("multiply", `{"a": 5, "b": 3}`, client)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
@@ -28,7 +36,7 @@ func TestExecuteLocalFunction(t *testing.T) {
 	}
 
 	// Test case 2: Unknown function
-	result, err = executeLocalFunction("divide", `{"a": 6, "b": 2}`)
+	result, err = executeLocalFunction("divide", `{"a": 6, "b": 2}`, client)
 	if err != nil {
 		t.Errorf("Expected no error for unknown function, got %v", err)
 	}
@@ -43,7 +51,7 @@ func TestExecuteLocalFunction(t *testing.T) {
 	}
 
 	// Test case 3: Invalid arguments
-	_, err = executeLocalFunction("multiply", `{"a": "not a number", "b": 3}`)
+	_, err = executeLocalFunction("multiply", `{"a": "not a number", "b": 3}`, client)
 	if err == nil {
 		t.Error("Expected error for invalid arguments, got nil")
 	}
