@@ -155,10 +155,10 @@ func executeLocalFunction(name, argsJSON string, debug WSClient) (any, error) {
 	if name != "multiply" {
 		return map[string]any{"error": "unknown function", "name": name}, nil
 	}
-	var args struct {
+	args := struct {
 		A float64 `json:"a"`
 		B float64 `json:"b"`
-	}
+	}{}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return nil, fmt.Errorf("bad args: %w", err)
 	}
@@ -166,9 +166,9 @@ func executeLocalFunction(name, argsJSON string, debug WSClient) (any, error) {
 }
 
 func (c *WSClient) handleEvent(msg []byte) {
-	var head struct {
+	head := struct {
 		Type string `json:"type"`
-	}
+	}{}
 	if err := json.Unmarshal(msg, &head); err != nil {
 		log.Printf("json err: %v", err)
 		return
