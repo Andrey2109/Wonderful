@@ -182,7 +182,6 @@ func (c *WSClient) handleEvent(msg []byte) {
 		_ = json.Unmarshal(msg, &e)
 		fmt.Print(e.Delta)
 	case "response.text.done":
-		fmt.Println("response.text.done")
 		fmt.Println()
 	case "response.output_item.added":
 		var e map[string]any
