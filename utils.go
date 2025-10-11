@@ -174,14 +174,14 @@ func (c *WSClient) handleEvent(msg []byte) {
 		return
 	}
 	switch head.Type {
-	case "response.text.delta":
+	case "response.output_text.delta":
 		var e struct {
 			Type  string `json:"type"`
 			Delta string `json:"delta"`
 		}
 		_ = json.Unmarshal(msg, &e)
 		fmt.Print(e.Delta)
-	case "response.text.done":
+	case "response.output_text.done", "response.text.done":
 		fmt.Println()
 	case "response.output_item.added":
 		var e map[string]any
