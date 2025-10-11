@@ -48,7 +48,7 @@ func loadEnvVariables(debug bool) Config {
 	}
 
 	if debug {
-		log.Printf("The instructions for the model are: %v", config.Instructions)
+		// log.Printf("The instructions for the model are: %v", config.Instructions)
 	}
 
 	if config.APIKey == "" {
@@ -104,7 +104,7 @@ func (c *WSClient) readLoop(ctx context.Context) {
 		}
 		c.handleEvent(msg)
 		if c.Debug {
-			// log.Printf("event: %s", string(msg))
+			log.Printf("event: %s", string(msg))
 		}
 	}
 }
@@ -175,6 +175,7 @@ func (c *WSClient) handleEvent(msg []byte) {
 	}
 	switch head.Type {
 	case "response.text.delta":
+		fmt.Println("response.text.delta")
 		var e struct {
 			Type  string `json:"type"`
 			Delta string `json:"delta"`
@@ -182,8 +183,10 @@ func (c *WSClient) handleEvent(msg []byte) {
 		_ = json.Unmarshal(msg, &e)
 		fmt.Print(e.Delta)
 	case "response.text.done":
+		fmt.Println("response.text.done")
 		fmt.Println()
 	case "response.output_item.added":
+		fmt.Println("response.output_item.added")
 		var e map[string]any
 		_ = json.Unmarshal(msg, &e)
 		if item, ok := e["item"].(map[string]any); ok {
@@ -196,6 +199,7 @@ func (c *WSClient) handleEvent(msg []byte) {
 			}
 		}
 	case "response.function_call_arguments.delta":
+		fmt.Println("response.function_call_arguments.delta")
 		var e struct {
 			Type   string `json:"type"`
 			CallID string `json:"call_id"`
@@ -229,11 +233,12 @@ func (c *WSClient) handleEvent(msg []byte) {
 		_ = c.sendFunctionResult(e.CallID, out)
 		_ = c.sendResponseCreate("Use the tool result to answer the user.")
 	case "response.done":
+		fmt.Println("response.done")
 		fmt.Println()
 
 	default:
 		if c.Debug {
-			// log.Printf("UNHANDLED: %s", string(msg))
+			log.Printf("UNHANDLED: %s", string(msg))
 		}
 	}
 }
