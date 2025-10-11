@@ -13,8 +13,12 @@ import (
 )
 
 type Config struct {
-	APIKey       string
-	Instructions string
+	APIKey                 string
+	Instructions           string
+	WebhookSecret          string
+	Port                   string
+	Voice                  string
+	DisableWebhookSigCheck bool
 }
 type WSClient struct {
 	Conn             *websocket.Conn
@@ -39,7 +43,11 @@ func loadEnvVariables(debug bool) Config {
 	// }
 
 	config := Config{
-		APIKey: os.Getenv("OPENAI_API_KEY"),
+		APIKey:                 os.Getenv("OPENAI_API_KEY"),
+		Port:                   getenvDefault("PORT", "8000"),
+		Voice:                  getenvDefault("REALTIME_VOICE", "verse"),
+		WebhookSecret:          os.Getenv("OPENAI_WEBHOOK_SECRET"),
+		DisableWebhookSigCheck: strings.EqualFold(os.Getenv("DISABLE_WEBHOOK_SIGNATURE_CHECK"), "true"),
 	}
 
 	instructions, err := readInstructionsFromFile("instructions.txt")
@@ -236,4 +244,10 @@ func (c *WSClient) handleEvent(msg []byte) {
 			// log.Printf("UNHANDLED: %s", string(msg))
 		}
 	}
+}
+func getenvDefault(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return def
 }
