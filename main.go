@@ -9,9 +9,10 @@ import (
 	"syscall"
 )
 
-const defaultModel = "gpt-4o-mini-realtime-preview-2024-12-17"
+const defaultModel = "gpt-realtime"
 
 func main() {
+	mode := flag.String("mode", "cli", "cli | sip")
 	model := flag.String("model", defaultModel, "OpenAI Realtime model id")
 	debug := flag.Bool("debug", false, "print raw events")
 	flag.Parse()
@@ -30,5 +31,9 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	if *mode == "sip" {
+		StartSIPServer(ctx, cfg, client.Debug)
+		return
+	}
 	RunClientLoop(ctx, client)
 }
