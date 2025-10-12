@@ -16,6 +16,7 @@ import (
 type Config struct {
 	APIKey                 string
 	Instructions           string
+	VoiceInstructions      string
 	WebhookSecret          string
 	Port                   string
 	Voice                  string
@@ -54,6 +55,10 @@ func loadEnvVariables(debug bool) Config {
 	instructions, err := readInstructionsFromFile("instructions.txt")
 	if err == nil && instructions != "" {
 		config.Instructions = instructions
+	}
+	voiceInstructions, err := readInstructionsFromFile("voice_instructions.txt")
+	if err == nil && voiceInstructions != "" {
+		config.VoiceInstructions = voiceInstructions
 	}
 
 	if debug {

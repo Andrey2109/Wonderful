@@ -53,7 +53,7 @@ func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 				http.Error(w, "no call_id", 400)
 				return
 			}
-			if err := acceptCall(cfg.APIKey, d.CallID, cfg.Instructions, cfg.Voice); err != nil {
+			if err := acceptCall(cfg.APIKey, d.CallID, cfg.VoiceInstructions, cfg.Voice); err != nil {
 				log.Printf("acceptCall: %v", err)
 				http.Error(w, "accept failed", 500)
 				return
