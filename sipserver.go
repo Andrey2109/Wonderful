@@ -78,10 +78,7 @@ func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 }
 
 func verifyHMAC(body []byte, secret, provided string) bool {
-	s := secret
-	if strings.HasPrefix(s, "whsec_") {
-		s = s[len("whsec_"):]
-	}
+	s := strings.TrimPrefix(secret, "whsec_")
 	h := hmac.New(sha256.New, []byte(s))
 	h.Write(body)
 	want := hex.EncodeToString(h.Sum(nil))
