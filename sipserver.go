@@ -13,6 +13,9 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
@@ -55,6 +58,7 @@ func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 				http.Error(w, "accept failed", 500)
 				return
 			}
+			go connectCallWS(cfg.APIKey, d.CallID, debug)
 			w.Header().Set("Authorization", "Bearer "+cfg.APIKey)
 			w.WriteHeader(200)
 			return
@@ -109,6 +113,30 @@ func acceptCall(apiKey, callID, instructions, voice string) error {
 		return fmt.Errorf("accept %d: %s", resp.StatusCode, out)
 	}
 	return nil
+}
+
+func connectCallWS(apiKey, callID string, debug bool) {
+	url := "wss://api.openai.com/v1/realtime?call_id=" + callID
+	hdr := http.Header{}
+	hdr.Set("Authorization", "Bearer "+apiKey)
+	hdr.Set("Origin", "https://api.openai.com")
+	d := websocket.Dialer{HandshakeTimeout: 15 * time.Second}
+	conn, _, err := d.Dial(url, hdr)
+	if err != nil {
+		log.Printf("ws dial: %v", err)
+		return
+	}
+	defer conn.Close()
+	// pump events (optional logging)
+	for {
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			break
+		}
+		if debug {
+			log.Printf("WS: %s", string(msg))
+		}
+	}
 }
 
 func bytesReader(b []byte) *os.File {
