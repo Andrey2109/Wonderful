@@ -2,8 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
+	"io"
 	"log"
 	"net/http"
+	"strings"
 )
 
 func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
@@ -12,6 +18,17 @@ func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNoContent)
 			return
+		}
+		raw, _ := io.ReadAll(r.Body)
+		if !cfg.DisableWebhookSigCheck && cfg.WebhookSecret != "" {
+			sig := r.Header.Get("webhook-signature")
+			if sig == "" {
+				sig = r.Header.Get("OpenAI-Signature")
+			}
+			if !verifyHMAC(raw, cfg.WebhookSecret, sig) {
+				http.Error(w, "Invalid signature", http.StatusBadRequest)
+				return
+			}
 		}
 		w.WriteHeader(200)
 	})
@@ -25,4 +42,15 @@ func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 	}()
 	<-ctx.Done()
 	_ = srv.Shutdown(context.Background())
+}
+
+func verifyHMAC(body []byte, secret, provided string) bool {
+	s := secret
+	if strings.HasPrefix(s, "whsec_") {
+		s = s[len("whsec_"):]
+	}
+	h := hmac.New(sha256.New, []byte(s))
+	h.Write(body)
+	want := hex.EncodeToString(h.Sum(nil))
+	return subtle.ConstantTimeCompare([]byte(want), []byte(strings.TrimSpace(provided))) == 1
 }
