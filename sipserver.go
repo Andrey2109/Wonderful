@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -29,6 +30,25 @@ func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 				http.Error(w, "Invalid signature", http.StatusBadRequest)
 				return
 			}
+		}
+		var ev struct {
+			Type string          `json:"type"`
+			Data json.RawMessage `json:"data"`
+		}
+		if err := json.Unmarshal(raw, &ev); err != nil {
+			http.Error(w, "bad json", http.StatusBadRequest)
+			return
+		}
+		if ev.Type == "realtime.call.incoming" {
+			var d struct {
+				CallID string `json:"call_id"`
+			}
+			_ = json.Unmarshal(ev.Data, &d)
+			if d.CallID == "" {
+				http.Error(w, "no call_id", 400)
+				return
+			}
+			// TODO: accept call
 		}
 		w.WriteHeader(200)
 	})
