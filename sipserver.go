@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -95,9 +96,12 @@ func acceptCall(apiKey, callID, instructions, voice string) error {
 		},
 	}
 	b, _ := json.Marshal(body)
-	req, _ := http.NewRequest("POST",
+	req, err := http.NewRequest("POST",
 		"https://api.openai.com/v1/realtime/calls/"+callID+"/accept",
-		io.NopCloser(bytesReader(b)))
+		bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
