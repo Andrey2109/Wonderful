@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -37,15 +38,15 @@ func readInstructionsFromFile(filename string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 func loadEnvVariables(debug bool) Config {
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	log.Printf("Error loading .env file %v", err)
-	// }
+	err := godotenv.Load()
+	if err != nil {
+		log.Printf("Error loading .env file %v", err)
+	}
 
 	config := Config{
 		APIKey:                 os.Getenv("OPENAI_API_KEY"),
 		Port:                   getenvDefault("PORT", "8000"),
-		Voice:                  getenvDefault("REALTIME_VOICE", "verse"),
+		Voice:                  getenvDefault("VOICE", "verse"),
 		WebhookSecret:          os.Getenv("OPENAI_WEBHOOK_SECRET"),
 		DisableWebhookSigCheck: strings.EqualFold(os.Getenv("DISABLE_WEBHOOK_SIGNATURE_CHECK"), "true"),
 	}
@@ -56,7 +57,8 @@ func loadEnvVariables(debug bool) Config {
 	}
 
 	if debug {
-		// log.Printf("The instructions for the model are: %v", config.Instructions)
+		log.Printf("The instructions for the model are: %v", config.Instructions)
+		log.Printf("The voice for the model is: %v", config.Voice)
 	}
 
 	if config.APIKey == "" {
@@ -112,7 +114,7 @@ func (c *WSClient) readLoop(ctx context.Context) {
 		}
 		c.handleEvent(msg)
 		if c.Debug {
-			// log.Printf("event: %s", string(msg))
+			log.Printf("event: %s", string(msg))
 		}
 	}
 }
@@ -182,7 +184,7 @@ func (c *WSClient) handleEvent(msg []byte) {
 		return
 	}
 	switch head.Type {
-	case "response.output_text.delta":
+	case "response.output_text.delta", "response.text.delta":
 		var e struct {
 			Type  string `json:"type"`
 			Delta string `json:"delta"`
@@ -241,7 +243,7 @@ func (c *WSClient) handleEvent(msg []byte) {
 
 	default:
 		if c.Debug {
-			// log.Printf("UNHANDLED: %s", string(msg))
+			log.Printf("UNHANDLED: %s", string(msg))
 		}
 	}
 }
