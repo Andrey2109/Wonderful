@@ -12,7 +12,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -146,11 +145,4 @@ func connectCallWS(apiKey, callID string, debug bool) {
 			log.Printf("WS: %s", string(msg))
 		}
 	}
-}
-
-func bytesReader(b []byte) *os.File {
-	f, _ := os.CreateTemp("", "b")
-	f.Write(b)
-	f.Seek(0, 0)
-	return f
 }
