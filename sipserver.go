@@ -127,7 +127,15 @@ func connectCallWS(apiKey, callID string, debug bool) {
 		return
 	}
 	defer conn.Close()
-	// pump events (optional logging)
+
+	greeting := map[string]any{
+		"type": "response.create",
+		"response": map[string]any{
+			"instructions": "היי",
+		},
+	}
+	_ = conn.WriteJSON(greeting)
+
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
