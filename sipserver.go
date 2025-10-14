@@ -131,7 +131,7 @@ func connectCallWS(apiKey, callID string, debug bool) {
 	greeting := map[string]any{
 		"type": "response.create",
 		"response": map[string]any{
-			"instructions": "התחל את השיחה בברכה קצרה: 'היי! הגעת לעוזר הזמנת התורים. איך אפשר לעזור?'",
+			"instructions": "התחל את השיחה בברכה קצרה: 'היי! הגעת לעוזר ניהול התורים. איך אפשר לעזור?'",
 		},
 	}
 	_ = conn.WriteJSON(greeting)
