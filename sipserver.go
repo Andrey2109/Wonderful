@@ -53,7 +53,7 @@ func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 				http.Error(w, "no call_id", 400)
 				return
 			}
-			if err := acceptCall(cfg.APIKey, d.CallID, cfg.VoiceInstructions, cfg.Voice); err != nil {
+			if err := acceptCallWithTools(cfg.APIKey, d.CallID, cfg.VoiceInstructions, cfg.Voice); err != nil {
 				log.Printf("acceptCall: %v", err)
 				http.Error(w, "accept failed", 500)
 				return
@@ -85,7 +85,7 @@ func verifyHMAC(body []byte, secret, provided string) bool {
 	return subtle.ConstantTimeCompare([]byte(want), []byte(strings.TrimSpace(provided))) == 1
 }
 
-func acceptCall(apiKey, callID, instructions, voice string) error {
+func acceptCallWithTools(apiKey, callID, instructions, voice string) error {
 	body := map[string]any{
 		"instructions": instructions,
 		"type":         "realtime",
@@ -93,6 +93,7 @@ func acceptCall(apiKey, callID, instructions, voice string) error {
 		"audio": map[string]any{
 			"output": map[string]any{"voice": voice},
 		},
+		"tools": GetToolDefinitions(),
 	}
 	b, _ := json.Marshal(body)
 	req, err := http.NewRequest("POST",
@@ -136,6 +137,9 @@ func connectCallWS(apiKey, callID string, debug bool) {
 	}
 	_ = conn.WriteJSON(greeting)
 
+	funcArgBuf := make(map[string]*strings.Builder)
+	pendingFuncNames := make(map[string]string)
+
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
@@ -144,5 +148,84 @@ func connectCallWS(apiKey, callID string, debug bool) {
 		if debug {
 			log.Printf("WS: %s", string(msg))
 		}
+		handleVoiceEvent(conn, msg, funcArgBuf, pendingFuncNames, debug)
+
 	}
+}
+func handleVoiceEvent(conn *websocket.Conn, msg []byte, funcArgBuf map[string]*strings.Builder, pendingFuncNames map[string]string, debug bool) {
+	var head struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(msg, &head); err != nil {
+		log.Printf("json err: %v", err)
+		return
+	}
+
+	switch head.Type {
+	case "response.output_item.added":
+		var e map[string]any
+		_ = json.Unmarshal(msg, &e)
+		if item, ok := e["item"].(map[string]any); ok {
+			if t, _ := item["type"].(string); t == "function_call" {
+				callID, _ := item["call_id"].(string)
+				name, _ := item["name"].(string)
+				if callID != "" && name != "" {
+					pendingFuncNames[callID] = name
+				}
+			}
+		}
+
+	case "response.function_call_arguments.delta":
+		var e struct {
+			Type   string `json:"type"`
+			CallID string `json:"call_id"`
+			Delta  string `json:"delta"`
+		}
+		_ = json.Unmarshal(msg, &e)
+		if _, ok := funcArgBuf[e.CallID]; !ok {
+			funcArgBuf[e.CallID] = &strings.Builder{}
+		}
+		funcArgBuf[e.CallID].WriteString(e.Delta)
+
+	case "response.function_call_arguments.done":
+		var e struct {
+			Type   string `json:"type"`
+			CallID string `json:"call_id"`
+		}
+		_ = json.Unmarshal(msg, &e)
+
+		buf := ""
+		if b, ok := funcArgBuf[e.CallID]; ok {
+			buf = b.String()
+		}
+		fn := pendingFuncNames[e.CallID]
+
+		out := ExecuteVoiceFunction(fn, buf, debug)
+
+		// Send the result back
+		sendFunctionResult(conn, e.CallID, out)
+
+		// Request a new response with the function result
+		_ = conn.WriteJSON(map[string]any{
+			"type": "response.create",
+			"response": map[string]any{
+				"instructions": "השתמש בתוצאת הפונקציה כדי לענות למשתמש.",
+			},
+		})
+
+		delete(funcArgBuf, e.CallID)
+		delete(pendingFuncNames, e.CallID)
+	}
+}
+
+func sendFunctionResult(conn *websocket.Conn, callID string, output any) error {
+	b, _ := json.Marshal(output)
+	return conn.WriteJSON(map[string]any{
+		"type": "conversation.item.create",
+		"item": map[string]any{
+			"type":    "function_call_output",
+			"call_id": callID,
+			"output":  string(b),
+		},
+	})
 }
