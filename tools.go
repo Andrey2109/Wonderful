@@ -68,16 +68,69 @@ func executeFindBranches(argsJSON string) any {
 		return map[string]any{"error": fmt.Sprintf("invalid arguments: %v", err)}
 	}
 
-	// TODO: Implement actual database query
-	//example  response
+	query := `
+        SELECT branch_id, name, district, city, address_line, phone
+        FROM branches
+        WHERE active = true
+    `
+	var queryArgs []any
+	argIndex := 1
+
+	if args.City != "" {
+		query += fmt.Sprintf(" AND city ILIKE $%d", argIndex)
+		queryArgs = append(queryArgs, "%"+args.City+"%")
+		argIndex++
+	}
+
+	if args.District != "" {
+		query += fmt.Sprintf(" AND district ILIKE $%d", argIndex)
+		queryArgs = append(queryArgs, "%"+args.District+"%")
+		argIndex++
+	}
+
+	query += " ORDER BY city, name"
+
+	rows, err := DB.Query(query, queryArgs...)
+	if err != nil {
+		log.Printf("Query error: %v", err)
+		return map[string]any{"error": fmt.Sprintf("database query failed: %v", err)}
+	}
+	defer rows.Close()
+
+	var branches []map[string]any
+	for rows.Next() {
+		var branchID int
+		var name, district, city, addressLine, phone string
+
+		if err := rows.Scan(&branchID, &name, &district, &city, &addressLine, &phone); err != nil {
+			log.Printf("Scan error: %v", err)
+			continue
+		}
+
+		branches = append(branches, map[string]any{
+			"id":       branchID,
+			"name":     name,
+			"district": district,
+			"city":     city,
+			"address":  addressLine,
+			"phone":    phone,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("Rows iteration error: %v", err)
+		return map[string]any{"error": fmt.Sprintf("error reading results: %v", err)}
+	}
+
+	if len(branches) == 0 {
+		return map[string]any{
+			"branches": []map[string]any{},
+			"message":  "לא נמצאו סניפים תואמים",
+		}
+	}
+
 	return map[string]any{
-		"branches": []map[string]any{
-			{
-				"id":      1,
-				"name":    "סניף תל אביב מרכז",
-				"city":    "Tel Aviv",
-				"address": "Dizengoff 123",
-			},
-		},
+		"branches": branches,
+		"count":    len(branches),
 	}
 }
