@@ -32,6 +32,11 @@ func main() {
 	defer cancel()
 
 	if *mode == "sip" {
+		if err := InitDB(cfg); err != nil {
+			log.Fatalf("failed to initialize database: %v", err)
+		}
+		defer CloseDB()
+
 		StartSIPServer(ctx, cfg, client.Debug)
 		return
 	}

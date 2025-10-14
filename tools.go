@@ -13,6 +13,7 @@ func GetToolDefinitions() []map[string]any {
 			"type":        "function",
 			"name":        "find_branches",
 			"description": "Find medical clinic branches by city or district",
+			"strict":      true,
 			"parameters": map[string]any{
 				"type": "object",
 				"properties": map[string]any{

@@ -21,6 +21,9 @@ type Config struct {
 	Port                   string
 	Voice                  string
 	DisableWebhookSigCheck bool
+	PostgresUser           string
+	PostgresPassword       string
+	PostgresDB             string
 }
 type WSClient struct {
 	Conn             *websocket.Conn
@@ -50,6 +53,9 @@ func loadEnvVariables(debug bool) Config {
 		Voice:                  getenvDefault("VOICE", "verse"),
 		WebhookSecret:          os.Getenv("OPENAI_WEBHOOK_SECRET"),
 		DisableWebhookSigCheck: strings.EqualFold(os.Getenv("DISABLE_WEBHOOK_SIGNATURE_CHECK"), "true"),
+		PostgresUser:           os.Getenv("POSTGRES_USER"),
+		PostgresPassword:       os.Getenv("POSTGRES_PASSWORD"),
+		PostgresDB:             os.Getenv("POSTGRES_DB"),
 	}
 
 	instructions, err := readInstructionsFromFile("instructions.txt")
