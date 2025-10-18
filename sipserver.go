@@ -87,7 +87,7 @@ func verifyHMAC(body []byte, secret, provided string) bool {
 
 func acceptCall(apiKey, callID, instructions, voice string) error {
 	body := map[string]any{
-		"instructions": instructions + "\n\nתמיד השתמש בפונקציות הזמינות כדי לענות על שאלות. אל תנסה לנחש או להמציא מידע. כשמבקשים סניפים, השתמש בפונקציה find_branches.",
+		"instructions": instructions,
 		"type":         "realtime",
 		"model":        "gpt-realtime",
 		"audio": map[string]any{
