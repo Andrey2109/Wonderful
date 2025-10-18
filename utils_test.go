@@ -6,7 +6,7 @@ import (
 )
 
 func TestLoadEnvVariables(t *testing.T) {
-	c := loadEnvVariables(false)
+	c := loadEnvVariables(false, "cip")
 	if c.APIKey == "" {
 		t.Error("Expected API key to be loaded")
 	}

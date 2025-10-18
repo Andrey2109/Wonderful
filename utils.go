@@ -41,7 +41,7 @@ func readInstructionsFromFile(filename string) (string, error) {
 	}
 	return strings.TrimSpace(string(data)), nil
 }
-func loadEnvVariables(debug bool) Config {
+func loadEnvVariables(debug bool, mode string) Config {
 	err := godotenv.Load()
 	if err != nil {
 		log.Printf("Error loading .env file %v", err)
@@ -68,7 +68,10 @@ func loadEnvVariables(debug bool) Config {
 	}
 
 	if debug {
-		log.Printf("The instructions for the model are: %v", config.Instructions)
+		if mode != "sip" {
+			log.Printf("The instructions for the model are: %v", config.Instructions)
+		}
+
 		log.Printf("The voice for the model is: %v", config.Voice)
 	}
 

@@ -16,7 +16,7 @@ func main() {
 	model := flag.String("model", defaultModel, "OpenAI Realtime model id")
 	debug := flag.Bool("debug", false, "print raw events")
 	flag.Parse()
-	cfg := loadEnvVariables(*debug)
+	cfg := loadEnvVariables(*debug, *mode)
 
 	client, err := setupOpenAIClient(cfg, *model, *debug)
 	if err != nil {
