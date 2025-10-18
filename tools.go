@@ -366,6 +366,9 @@ func executeFindDoctors(argsJSON string) any {
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return map[string]any{"error": fmt.Sprintf("invalid arguments: %v", err)}
 	}
+	if args.Specialty != "" {
+		args.Specialty = normalizeSpecialty(args.Specialty)
+	}
 
 	log.Printf("DEBUG: Searching doctors with params: specialty=%s, branch_id=%d, city=%s, district=%s, doctor_name=%s",
 		args.Specialty, args.BranchID, args.City, args.District, args.DoctorName)
@@ -393,8 +396,8 @@ func executeFindDoctors(argsJSON string) any {
 	argIndex := 1
 
 	if args.Specialty != "" {
-		query += fmt.Sprintf(" AND s.name = $%d", argIndex)
-		queryArgs = append(queryArgs, args.Specialty)
+		query += fmt.Sprintf(" AND s.name ILIKE $%d", argIndex)
+		queryArgs = append(queryArgs, "%"+args.Specialty+"%")
 		argIndex++
 	}
 
@@ -420,9 +423,9 @@ func executeFindDoctors(argsJSON string) any {
 	}
 
 	if args.City != "" {
-		query += fmt.Sprintf(" AND b.city ILIKE $%d", argIndex)
-		queryArgs = append(queryArgs, "%"+args.City+"%")
-		argIndex++
+		query += fmt.Sprintf(" AND (b.city ILIKE $%d OR similarity(b.city, $%d) > 0.3)", argIndex, argIndex+1)
+		queryArgs = append(queryArgs, "%"+args.City+"%", args.City)
+		argIndex += 2
 	}
 
 	query += " ORDER BY d.last_name, d.first_name, b.name"
@@ -477,6 +480,18 @@ func executeFindDoctors(argsJSON string) any {
 		"count":   len(doctors),
 	}
 }
+func normalizeSpecialty(specialty string) string {
+	replacements := map[string]string{
+		"אורטופד":    "אורתופד",
+		"פיזיותרפיה": "פיזיותרפיסט",
+		"גניקולוג":   "גינקולוג",
+	}
+
+	if normalized, ok := replacements[specialty]; ok {
+		return normalized
+	}
+	return specialty
+}
 
 func executeListFreeSlots(argsJSON string) any {
 	var args struct {
@@ -510,11 +525,8 @@ func executeListFreeSlots(argsJSON string) any {
 		loc, _ = time.LoadLocation("Asia/Jerusalem")
 	}
 
+	// Fix: Don't convert Sunday, keep PostgreSQL's 0-6 convention
 	dow := int(targetDate.Weekday())
-	if dow == 0 {
-		dow = 7
-
-	}
 
 	var startTimeLocal, endTimeLocal time.Time
 	var slotMinutes int

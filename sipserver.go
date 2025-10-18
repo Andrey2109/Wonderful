@@ -13,9 +13,15 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+)
+
+var (
+	activeCallsMu sync.RWMutex
+	activeCalls   = make(map[string]bool)
 )
 
 func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
@@ -53,7 +59,24 @@ func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 				http.Error(w, "no call_id", 400)
 				return
 			}
+
+			activeCallsMu.Lock()
+			if activeCalls[d.CallID] {
+				activeCallsMu.Unlock()
+				if debug {
+					log.Printf("Call %s already accepted, ignoring duplicate webhook", d.CallID)
+				}
+				w.WriteHeader(200)
+				return
+			}
+			activeCalls[d.CallID] = true
+			activeCallsMu.Unlock()
+
 			if err := acceptCall(cfg.APIKey, d.CallID, cfg.VoiceInstructions, cfg.Voice); err != nil {
+				activeCallsMu.Lock()
+				delete(activeCalls, d.CallID)
+				activeCallsMu.Unlock()
+
 				log.Printf("acceptCall: %v", err)
 				http.Error(w, "accept failed", 500)
 				return
@@ -116,6 +139,7 @@ func acceptCall(apiKey, callID, instructions, voice string) error {
 }
 
 func connectCallWS(apiKey, callID string, debug bool) {
+
 	url := "wss://api.openai.com/v1/realtime?call_id=" + callID
 	hdr := http.Header{}
 	hdr.Set("Authorization", "Bearer "+apiKey)
@@ -126,7 +150,15 @@ func connectCallWS(apiKey, callID string, debug bool) {
 		log.Printf("ws dial: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		conn.Close()
+		activeCallsMu.Lock()
+		delete(activeCalls, callID)
+		activeCallsMu.Unlock()
+		if debug {
+			log.Printf("Call %s cleanup complete", callID)
+		}
+	}()
 
 	sessionUpdate := map[string]any{
 		"type": "session.update",
