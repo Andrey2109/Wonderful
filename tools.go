@@ -12,21 +12,34 @@ func GetToolDefinitions() []map[string]any {
 		{
 			"type":        "function",
 			"name":        "find_branches",
-			"description": "Find medical clinic branches by city or district",
-			"strict":      true,
+			"description": "Find medical clinic branches by city or district. City names must be in Hebrew (e.g., 'תל אביב' for Tel Aviv, 'חיפה' for Haifa, 'ירושלים' for Jerusalem)",
 			"parameters": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"city": map[string]any{
 						"type":        "string",
-						"description": "City name (e.g., Tel Aviv, Haifa)",
+						"description": "City name in Hebrew (examples: תל אביב, חיפה, ירושלים, באר שבע)",
 					},
 					"district": map[string]any{
 						"type":        "string",
-						"description": "District name",
+						"description": "District name in Hebrew",
 					},
 				},
 				"additionalProperties": false,
+			},
+		},
+		{
+			"type":        "function",
+			"name":        "end_call",
+			"description": "End the phone call when conversation is complete",
+			"parameters": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"reason": map[string]any{
+						"type":        "string",
+						"description": "Any reason for ending (e.g., 'user said goodbye')",
+					},
+				},
 			},
 		},
 		// TODO: Add more tool definitions here
@@ -49,6 +62,11 @@ func ExecuteVoiceFunction(name, argsJSON string, debug bool) any {
 	switch name {
 	case "find_branches":
 		return executeFindBranches(argsJSON)
+	case "end_call":
+		return map[string]any{
+			"status":  "call_ended",
+			"message": "להתראות!",
+		}
 		// TODO: Add more function handlers
 	default:
 		return map[string]any{

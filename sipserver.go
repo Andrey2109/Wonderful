@@ -53,7 +53,7 @@ func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 				http.Error(w, "no call_id", 400)
 				return
 			}
-			if err := acceptCallWithTools(cfg.APIKey, d.CallID, cfg.VoiceInstructions, cfg.Voice); err != nil {
+			if err := acceptCall(cfg.APIKey, d.CallID, cfg.VoiceInstructions, cfg.Voice); err != nil {
 				log.Printf("acceptCall: %v", err)
 				http.Error(w, "accept failed", 500)
 				return
@@ -85,15 +85,14 @@ func verifyHMAC(body []byte, secret, provided string) bool {
 	return subtle.ConstantTimeCompare([]byte(want), []byte(strings.TrimSpace(provided))) == 1
 }
 
-func acceptCallWithTools(apiKey, callID, instructions, voice string) error {
+func acceptCall(apiKey, callID, instructions, voice string) error {
 	body := map[string]any{
-		"instructions": instructions,
+		"instructions": instructions + "\n\nתמיד השתמש בפונקציות הזמינות כדי לענות על שאלות. אל תנסה לנחש או להמציא מידע. כשמבקשים סניפים, השתמש בפונקציה find_branches.",
 		"type":         "realtime",
 		"model":        "gpt-realtime",
 		"audio": map[string]any{
 			"output": map[string]any{"voice": voice},
 		},
-		"tools": GetToolDefinitions(),
 	}
 	b, _ := json.Marshal(body)
 	req, err := http.NewRequest("POST",
@@ -129,10 +128,26 @@ func connectCallWS(apiKey, callID string, debug bool) {
 	}
 	defer conn.Close()
 
+	sessionUpdate := map[string]any{
+		"type": "session.update",
+		"session": map[string]any{
+			"type":  "realtime",
+			"tools": GetToolDefinitions(),
+		},
+	}
+	if err := conn.WriteJSON(sessionUpdate); err != nil {
+		log.Printf("session.update error: %v", err)
+		return
+	}
+
+	if debug {
+		log.Println("Session updated with tools")
+	}
+
 	greeting := map[string]any{
 		"type": "response.create",
 		"response": map[string]any{
-			"instructions": "התחל את השיחה בברכה קצרה: 'היי! הגעת לעוזר ניהול התורים. איך אפשר לעזור?'",
+			"instructions": "התחל את השיחה בברכה קצרה: 'שלום! הגעת לעוזר ניהול התורים. איך אפשר לעזור?'",
 		},
 	}
 	_ = conn.WriteJSON(greeting)
@@ -149,9 +164,9 @@ func connectCallWS(apiKey, callID string, debug bool) {
 			log.Printf("WS: %s", string(msg))
 		}
 		handleVoiceEvent(conn, msg, funcArgBuf, pendingFuncNames, debug)
-
 	}
 }
+
 func handleVoiceEvent(conn *websocket.Conn, msg []byte, funcArgBuf map[string]*strings.Builder, pendingFuncNames map[string]string, debug bool) {
 	var head struct {
 		Type string `json:"type"`
@@ -171,6 +186,9 @@ func handleVoiceEvent(conn *websocket.Conn, msg []byte, funcArgBuf map[string]*s
 				name, _ := item["name"].(string)
 				if callID != "" && name != "" {
 					pendingFuncNames[callID] = name
+					if debug {
+						log.Printf("Function call detected: %s (callID: %s)", name, callID)
+					}
 				}
 			}
 		}
@@ -200,16 +218,29 @@ func handleVoiceEvent(conn *websocket.Conn, msg []byte, funcArgBuf map[string]*s
 		}
 		fn := pendingFuncNames[e.CallID]
 
+		if debug {
+			log.Printf("Executing function: %s with args: %s", fn, buf)
+		}
+
+		if fn == "end_call" {
+			log.Println("Assistant requested call end")
+			sendFunctionResult(conn, e.CallID, map[string]any{
+				"status":  "success",
+				"message": "Call ended gracefully",
+			})
+			time.Sleep(500 * time.Millisecond)
+			conn.Close()
+			return
+		}
+
 		out := ExecuteVoiceFunction(fn, buf, debug)
 
-		// Send the result back
 		sendFunctionResult(conn, e.CallID, out)
 
-		// Request a new response with the function result
 		_ = conn.WriteJSON(map[string]any{
 			"type": "response.create",
 			"response": map[string]any{
-				"instructions": "השתמש בתוצאת הפונקציה כדי לענות למשתמש.",
+				"instructions": "השתמש בתוצאת הפונקציה כדי לענות למשתמש בעברית טבעית.",
 			},
 		})
 

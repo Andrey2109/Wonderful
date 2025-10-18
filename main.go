@@ -18,6 +18,20 @@ func main() {
 	flag.Parse()
 	cfg := loadEnvVariables(*debug, *mode)
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	if *mode == "sip" {
+		if err := InitDB(cfg); err != nil {
+			log.Fatalf("failed to initialize database: %v", err)
+		}
+		defer CloseDB()
+
+		StartSIPServer(ctx, cfg, *debug)
+		return
+	}
+
+	// Only setup OpenAI client for CLI mode
 	client, err := setupOpenAIClient(cfg, *model, *debug)
 	if err != nil {
 		log.Fatalf("failed to setup OpenAI client: %v", err)
@@ -28,17 +42,5 @@ func main() {
 		log.Fatalf("Failed to initialize session: %v", err)
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
-
-	if *mode == "sip" {
-		if err := InitDB(cfg); err != nil {
-			log.Fatalf("failed to initialize database: %v", err)
-		}
-		defer CloseDB()
-
-		StartSIPServer(ctx, cfg, client.Debug)
-		return
-	}
 	RunClientLoop(ctx, client)
 }
