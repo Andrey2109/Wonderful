@@ -161,7 +161,7 @@ func connectCallWS(apiKey, callID string, debug bool) {
 			break
 		}
 		if debug {
-			log.Printf("WS: %s", string(msg))
+			// log.Printf("WS: %s", string(msg))
 		}
 		if shouldEnd := handleVoiceEvent(conn, msg, funcArgBuf, pendingFuncNames, apiKey, callID, debug); shouldEnd {
 			break
