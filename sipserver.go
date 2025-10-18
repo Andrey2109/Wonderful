@@ -163,17 +163,19 @@ func connectCallWS(apiKey, callID string, debug bool) {
 		if debug {
 			log.Printf("WS: %s", string(msg))
 		}
-		handleVoiceEvent(conn, msg, funcArgBuf, pendingFuncNames, debug)
+		if shouldEnd := handleVoiceEvent(conn, msg, funcArgBuf, pendingFuncNames, apiKey, callID, debug); shouldEnd {
+			break
+		}
 	}
 }
 
-func handleVoiceEvent(conn *websocket.Conn, msg []byte, funcArgBuf map[string]*strings.Builder, pendingFuncNames map[string]string, debug bool) {
+func handleVoiceEvent(conn *websocket.Conn, msg []byte, funcArgBuf map[string]*strings.Builder, pendingFuncNames map[string]string, apiKey, callID string, debug bool) bool {
 	var head struct {
 		Type string `json:"type"`
 	}
 	if err := json.Unmarshal(msg, &head); err != nil {
 		log.Printf("json err: %v", err)
-		return
+		return false
 	}
 
 	switch head.Type {
@@ -224,13 +226,29 @@ func handleVoiceEvent(conn *websocket.Conn, msg []byte, funcArgBuf map[string]*s
 
 		if fn == "end_call" {
 			log.Println("Assistant requested call end")
+
 			sendFunctionResult(conn, e.CallID, map[string]any{
 				"status":  "success",
-				"message": "Call ended gracefully",
+				"message": "להתראות!",
 			})
-			time.Sleep(500 * time.Millisecond)
+
+			_ = conn.WriteJSON(map[string]any{
+				"type": "response.create",
+				"response": map[string]any{
+					"instructions": "אמור להתראות בצורה קצרה ונעימה",
+				},
+			})
+
+			time.Sleep(2 * time.Second)
+
+			if err := hangupCall(apiKey, callID); err != nil {
+				log.Printf("Failed to hang up call: %v", err)
+			} else {
+				log.Println("Call hung up successfully via API")
+			}
+
 			conn.Close()
-			return
+			return true
 		}
 
 		out := ExecuteVoiceFunction(fn, buf, debug)
@@ -247,6 +265,7 @@ func handleVoiceEvent(conn *websocket.Conn, msg []byte, funcArgBuf map[string]*s
 		delete(funcArgBuf, e.CallID)
 		delete(pendingFuncNames, e.CallID)
 	}
+	return false
 }
 
 func sendFunctionResult(conn *websocket.Conn, callID string, output any) error {
@@ -259,4 +278,25 @@ func sendFunctionResult(conn *websocket.Conn, callID string, output any) error {
 			"output":  string(b),
 		},
 	})
+}
+func hangupCall(apiKey, callID string) error {
+	req, err := http.NewRequest("POST",
+		"https://api.openai.com/v1/realtime/calls/"+callID+"/hangup",
+		nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode/100 != 2 {
+		out, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("hangup %d: %s", resp.StatusCode, out)
+	}
+	return nil
 }
