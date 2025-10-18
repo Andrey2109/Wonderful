@@ -367,8 +367,8 @@ func executeFindDoctors(argsJSON string) any {
 		return map[string]any{"error": fmt.Sprintf("invalid arguments: %v", err)}
 	}
 
-	log.Printf("DEBUG: Searching doctors with params: specialty=%s, branch_id=%d, city=%s, district=%s",
-		args.Specialty, args.BranchID, args.City, args.District)
+	log.Printf("DEBUG: Searching doctors with params: specialty=%s, branch_id=%d, city=%s, district=%s, doctor_name=%s",
+		args.Specialty, args.BranchID, args.City, args.District, args.DoctorName)
 
 	query := `
         SELECT DISTINCT 
@@ -405,9 +405,12 @@ func executeFindDoctors(argsJSON string) any {
 	}
 
 	if args.DoctorName != "" {
-		query += fmt.Sprintf(" AND (d.first_name || ' ' || d.last_name) ILIKE $%d", argIndex)
-		queryArgs = append(queryArgs, "%"+args.DoctorName+"%")
-		argIndex++
+		// Search in first name, last name, or full name (both ways)
+		query += fmt.Sprintf(" AND (d.first_name ILIKE $%d OR d.last_name ILIKE $%d OR (d.first_name || ' ' || d.last_name) ILIKE $%d OR (d.last_name || ' ' || d.first_name) ILIKE $%d)",
+			argIndex, argIndex+1, argIndex+2, argIndex+3)
+		searchPattern := "%" + args.DoctorName + "%"
+		queryArgs = append(queryArgs, searchPattern, searchPattern, searchPattern, searchPattern)
+		argIndex += 4
 	}
 
 	if args.District != "" {
@@ -417,7 +420,6 @@ func executeFindDoctors(argsJSON string) any {
 	}
 
 	if args.City != "" {
-
 		query += fmt.Sprintf(" AND b.city ILIKE $%d", argIndex)
 		queryArgs = append(queryArgs, "%"+args.City+"%")
 		argIndex++
@@ -707,22 +709,23 @@ func executeBookAppointment(argsJSON string) any {
 
 	endTime := startTime.Add(time.Duration(args.DurationMinutes) * time.Minute)
 
-	// Create the appointment with slot range
+	log.Printf("DEBUG: Booking appointment - doctor_branch_id=%d, doctor_id=%d, branch_id=%d, patient_id=%d, start=%s, end=%s",
+		args.DoctorBranchID, args.DoctorID, args.BranchID, args.PatientID, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
+
 	var appointmentID string
 	err = DB.QueryRow(`
         INSERT INTO appointments (
             doctor_branch_id, doctor_id, branch_id, patient_id,
-            start_at, end_at, slot, created_by
+            start_at, end_at, created_by
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, 
-            tstzrange($5, $6, '[)'),
-            'voice_assistant'
+            $1, $2, $3, $4, $5, $6, $7
         )
         RETURNING appointment_id
     `, args.DoctorBranchID, args.DoctorID, args.BranchID, args.PatientID,
-		startTime, endTime).Scan(&appointmentID)
+		startTime, endTime, "voice_assistant").Scan(&appointmentID)
 
 	if err != nil {
+		log.Printf("DEBUG: Failed to insert appointment: %v", err)
 		if strings.Contains(err.Error(), "overlaps") || strings.Contains(err.Error(), "conflict") {
 			return map[string]any{
 				"error":   "time_conflict",
@@ -731,6 +734,8 @@ func executeBookAppointment(argsJSON string) any {
 		}
 		return map[string]any{"error": fmt.Sprintf("failed to book: %v", err)}
 	}
+
+	log.Printf("DEBUG: Successfully created appointment_id=%s", appointmentID)
 
 	var doctorFirst, doctorLast, branchName, branchCity string
 	err = DB.QueryRow(`
