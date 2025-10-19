@@ -24,6 +24,7 @@ type Config struct {
 	PostgresUser           string
 	PostgresPassword       string
 	PostgresDB             string
+	DBHost                 string
 }
 type WSClient struct {
 	Conn             *websocket.Conn
@@ -56,6 +57,7 @@ func loadEnvVariables(debug bool, mode string) Config {
 		PostgresUser:           os.Getenv("POSTGRES_USER"),
 		PostgresPassword:       os.Getenv("POSTGRES_PASSWORD"),
 		PostgresDB:             os.Getenv("POSTGRES_DB"),
+		DBHost:                 os.Getenv("DB_HOST"),
 	}
 
 	instructions, err := readInstructionsFromFile("instructions.txt")

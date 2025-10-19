@@ -12,7 +12,8 @@ var DB *sql.DB
 
 func InitDB(cfg Config) error {
 	connStr := fmt.Sprintf(
-		"host=localhost port=5432 user=%s password=%s dbname=%s sslmode=disable",
+		"host=%s port=5432 user=%s password=%s dbname=%s sslmode=require",
+		cfg.DBHost,
 		cfg.PostgresUser,
 		cfg.PostgresPassword,
 		cfg.PostgresDB,
