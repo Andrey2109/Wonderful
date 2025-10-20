@@ -66,7 +66,8 @@ func loadEnvVariables(debug bool, mode string) Config {
 	}
 	voiceInstructions, err := readInstructionsFromFile("voice_instructions.txt")
 	if err == nil && voiceInstructions != "" {
-		config.VoiceInstructions = voiceInstructions
+		config.VoiceInstructions = voiceInstructions + ` אתה עובד בשעון ישראל (Asia/Jerusalem)
+    התאריך והשעה הנוכחיים בישראל הם: ` + getIsraelTime().Format("2006-01-02 15:04")
 	}
 
 	if debug {

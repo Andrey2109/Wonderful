@@ -9,6 +9,15 @@ import (
 	"time"
 )
 
+func getIsraelTime() time.Time {
+	loc, err := time.LoadLocation("Asia/Jerusalem")
+	if err != nil {
+		log.Printf("Failed to load Israel timezone: %v", err)
+		return time.Now()
+	}
+	return time.Now().In(loc)
+}
+
 func GetToolDefinitions() []map[string]any {
 	return []map[string]any{
 		{
@@ -575,7 +584,7 @@ func executeListFreeSlots(argsJSON string) any {
 	}
 
 	var slots []map[string]any
-	now := time.Now().In(loc)
+	now := getIsraelTime()
 
 	for t := startDateTime; t.Before(endDateTime); t = t.Add(time.Duration(slotMinutes) * time.Minute) {
 
@@ -822,9 +831,9 @@ func executeCancelAppointment(argsJSON string) any {
         UPDATE appointments
         SET status = 'cancelled',
             cancellation_reason = $2,
-            cancelled_at = NOW()
+            cancelled_at = $3
         WHERE appointment_id = $1
-    `, args.AppointmentID, args.Reason)
+    `, args.AppointmentID, args.Reason, getIsraelTime())
 
 	if err != nil {
 		return map[string]any{"error": fmt.Sprintf("failed to cancel: %v", err)}
@@ -893,7 +902,7 @@ func executeListPatientAppointments(argsJSON string) any {
 	} else {
 
 		query += fmt.Sprintf(" AND a.start_at >= $%d", argIndex)
-		queryArgs = append(queryArgs, time.Now())
+		queryArgs = append(queryArgs, getIsraelTime())
 		argIndex++
 	}
 
@@ -993,7 +1002,8 @@ func executeFindPatientAppointmentForCancel(argsJSON string) any {
 		query += " AND DATE(a.start_at) = $2"
 		queryArgs = append(queryArgs, args.Date)
 	} else {
-		query += " AND a.start_at >= NOW()"
+		query += " AND a.start_at >= $2"
+		queryArgs = append(queryArgs, getIsraelTime())
 	}
 
 	query += " ORDER BY a.start_at LIMIT 5"
