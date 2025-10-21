@@ -326,7 +326,7 @@ go test -v -run TestFunctionName
 ### OpenAI Documentation
 - [Realtime API with SIP Guide](https://platform.openai.com/docs/guides/realtime-sip)
 - [Realtime API Reference](https://platform.openai.com/docs/api-reference/realtime)
-- [Webhook Events](https://platform.openai.com/docs/api-reference/webhook-events)
+- [Webhook Events](https://platform.openai.com/docs/api-reference/webhook-events/realtime)
 
 ### Twilio Documentation
 - [Elastic SIP Trunking](https://www.twilio.com/docs/sip-trunking)
