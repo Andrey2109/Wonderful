@@ -103,12 +103,12 @@ go mod download
 
 3. **Run the application**:
    ```bash
-   go run .
+   go run  . -mode=sip
    ```
    
    For debugging:
    ```bash
-   go run . -debug=true
+   go run . -mode=sip -debug
    ```
 
 4. **Call your phone number** and start talking to the AI assistant!
@@ -298,7 +298,7 @@ Receives incoming call webhooks from OpenAI
 Enable debug logging to see WebSocket events:
 
 ```bash
-go run . -debug=true
+   go run . -mode=sip -debug
 ```
 
 This will output:
