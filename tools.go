@@ -623,13 +623,23 @@ func executeCreateOrGetPatient(argsJSON string) any {
 		return map[string]any{"error": fmt.Sprintf("invalid arguments: %v", err)}
 	}
 
-	nationalID := strings.ReplaceAll(args.NationalID, "-", "")
+	// Convert Hebrew number words to digits
+	nationalID := convertHebrewNumbersToDigits(args.NationalID)
+
+	// Remove all non-digit characters
+	nationalID = strings.ReplaceAll(nationalID, "-", "")
 	nationalID = strings.ReplaceAll(nationalID, " ", "")
+	nationalID = strings.ReplaceAll(nationalID, ".", "")
+
+	// Pad with leading zeros if needed (Israeli IDs should be 9 digits)
+	if len(nationalID) < 9 && len(nationalID) > 0 {
+		nationalID = fmt.Sprintf("%09s", nationalID)
+	}
 
 	if len(nationalID) != 9 {
 		return map[string]any{
 			"error":   "invalid_id",
-			"message": "תעודת זהות חייבת להכיל 9 ספרות",
+			"message": fmt.Sprintf("תעודת זהות חייבת להכיל 9 ספרות. קיבלתי: %s (%d ספרות)", args.NationalID, len(nationalID)),
 		}
 	}
 
@@ -707,6 +717,28 @@ func executeCreateOrGetPatient(argsJSON string) any {
 		"last_name":  lastName.String,
 		"message":    fmt.Sprintf("נמצא מטופל קיים: %s %s", firstName.String, lastName.String),
 	}
+}
+
+func convertHebrewNumbersToDigits(input string) string {
+	hebrewToDigit := map[string]string{
+		"אפס": "0",
+		"אחת": "1", "אחד": "1",
+		"שתיים": "2", "שניים": "2", "שני": "2",
+		"שלוש": "3", "שלושה": "3",
+		"ארבע": "4", "ארבעה": "4",
+		"חמש": "5", "חמישה": "5",
+		"שש": "6", "שישה": "6",
+		"שבע": "7", "שבעה": "7",
+		"שמונה": "8",
+		"תשע":   "9", "תשעה": "9",
+	}
+
+	result := input
+	for hebrew, digit := range hebrewToDigit {
+		result = strings.ReplaceAll(result, hebrew, digit)
+	}
+
+	return result
 }
 
 func executeBookAppointment(argsJSON string) any {
