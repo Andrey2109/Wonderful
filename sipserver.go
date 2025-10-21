@@ -77,6 +77,15 @@ func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 				delete(activeCalls, d.CallID)
 				activeCallsMu.Unlock()
 
+				if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "call_id_not_found") {
+					if debug {
+						log.Printf("Call %s not found (possibly already ended or invalid): %v", d.CallID, err)
+					}
+					// Don't return error - just acknowledge the webhook
+					w.WriteHeader(200)
+					return
+				}
+
 				log.Printf("acceptCall: %v", err)
 				http.Error(w, "accept failed", 500)
 				return
