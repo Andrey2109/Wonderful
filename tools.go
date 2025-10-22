@@ -623,15 +623,12 @@ func executeCreateOrGetPatient(argsJSON string) any {
 		return map[string]any{"error": fmt.Sprintf("invalid arguments: %v", err)}
 	}
 
-	// Convert Hebrew number words to digits
 	nationalID := convertHebrewNumbersToDigits(args.NationalID)
 
-	// Remove all non-digit characters
 	nationalID = strings.ReplaceAll(nationalID, "-", "")
 	nationalID = strings.ReplaceAll(nationalID, " ", "")
 	nationalID = strings.ReplaceAll(nationalID, ".", "")
 
-	// Pad with leading zeros if needed (Israeli IDs should be 9 digits)
 	if len(nationalID) < 9 && len(nationalID) > 0 {
 		nationalID = fmt.Sprintf("%09s", nationalID)
 	}
@@ -653,7 +650,7 @@ func executeCreateOrGetPatient(argsJSON string) any {
     `, nationalID).Scan(&patientID, &firstName, &lastName, &existingPhone)
 
 	if err == sql.ErrNoRows {
-		// Create new patient
+		// Create new patient - use ON CONFLICT ... DO UPDATE to handle race conditions
 		phone := ""
 		if args.Phone != "" {
 			phone = strings.ReplaceAll(args.Phone, "-", "")
@@ -663,35 +660,23 @@ func executeCreateOrGetPatient(argsJSON string) any {
 		err = DB.QueryRow(`
             INSERT INTO patients (first_name, last_name, national_id, phone)
             VALUES ($1, $2, $3, NULLIF($4, ''))
-            ON CONFLICT (national_id) DO NOTHING
-            RETURNING patient_id
-        `, args.FirstName, args.LastName, nationalID, phone).Scan(&patientID)
+            ON CONFLICT (national_id) DO UPDATE 
+            SET phone = COALESCE(EXCLUDED.phone, patients.phone)
+            RETURNING patient_id, first_name, last_name
+        `, args.FirstName, args.LastName, nationalID, phone).Scan(&patientID, &firstName, &lastName)
 
 		if err != nil {
-			// Check if it was a conflict (patient was created by another request)
-			err = DB.QueryRow(`
-                SELECT patient_id, first_name, last_name
-                FROM patients
-                WHERE national_id = $1
-            `, nationalID).Scan(&patientID, &firstName, &lastName)
-
-			if err != nil {
-				return map[string]any{"error": fmt.Sprintf("failed to create patient: %v", err)}
-			}
-
-			return map[string]any{
-				"patient_id": patientID,
-				"created":    false,
-				"first_name": firstName.String,
-				"last_name":  lastName.String,
-				"message":    fmt.Sprintf("נמצא מטופל קיים: %s %s", firstName.String, lastName.String),
-			}
+			return map[string]any{"error": fmt.Sprintf("failed to create patient: %v", err)}
 		}
+
+		wasCreated := firstName.String == args.FirstName && lastName.String == args.LastName
 
 		return map[string]any{
 			"patient_id": patientID,
-			"created":    true,
-			"message":    fmt.Sprintf("נוצר מטופל חדש: %s %s", args.FirstName, args.LastName),
+			"created":    wasCreated,
+			"first_name": firstName.String,
+			"last_name":  lastName.String,
+			"message":    fmt.Sprintf("נוצר מטופל חדש: %s %s", firstName.String, lastName.String),
 		}
 	}
 
