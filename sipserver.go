@@ -142,7 +142,8 @@ func acceptCall(apiKey, callID, instructions, voice string) error {
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
 		out, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("accept %d: %s", resp.StatusCode, out)
+		log.Printf("accept %d: %s", resp.StatusCode, out)
+		return nil
 	}
 	return nil
 }
