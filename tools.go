@@ -93,17 +93,17 @@ func GetToolDefinitions() []map[string]any {
 		{
 			"type":        "function",
 			"name":        "create_or_get_patient",
-			"description": "Create a new patient or get existing patient by national ID",
+			"description": "Create a new patient or get existing patient by national ID. If patient exists (by national_id), first_name and last_name are optional - the function will return existing patient data.",
 			"parameters": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"first_name": map[string]any{
 						"type":        "string",
-						"description": "Patient's first name",
+						"description": "Patient's first name (required only for new patients)",
 					},
 					"last_name": map[string]any{
 						"type":        "string",
-						"description": "Patient's last name",
+						"description": "Patient's last name (required only for new patients)",
 					},
 					"national_id": map[string]any{
 						"type":        "string",
@@ -114,7 +114,7 @@ func GetToolDefinitions() []map[string]any {
 						"description": "Patient's phone number (optional for contact)",
 					},
 				},
-				"required":             []string{"first_name", "last_name", "national_id"},
+				"required":             []string{"national_id"},
 				"additionalProperties": false,
 			},
 		},
@@ -650,6 +650,15 @@ func executeCreateOrGetPatient(argsJSON string) any {
     `, nationalID).Scan(&patientID, &firstName, &lastName, &existingPhone)
 
 	if err == sql.ErrNoRows {
+		// Patient doesn't exist - need name to create
+		if args.FirstName == "" || args.LastName == "" {
+			return map[string]any{
+				"error":       "patient_not_found_need_name",
+				"message":     "מטופל לא נמצא במערכת. נא לספק שם פרטי ושם משפחה ליצירת מטופל חדש.",
+				"national_id": nationalID,
+			}
+		}
+
 		// Create new patient - use ON CONFLICT ... DO UPDATE to handle race conditions
 		phone := ""
 		if args.Phone != "" {
