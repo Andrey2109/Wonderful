@@ -87,6 +87,8 @@ go mod download
 
 ## Usage
 
+**Try it out!** Call the demo to experience the AI assistant: [+972 76-599-2979](tel:+972765992979) *(No setup required - call anytime to test the functionality before configuring your own number)*
+
 ### Running Locally with Ngrok
 
 1. **Start Ngrok tunnel** (in a separate terminal):
