@@ -27,6 +27,7 @@ var (
 func StartSIPServer(ctx context.Context, cfg Config, debug bool) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Received webhook: Method=%s, Headers=%v", r.Method, r.Header)
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -142,8 +143,8 @@ func acceptCall(apiKey, callID, instructions, voice string) error {
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
 		out, _ := io.ReadAll(resp.Body)
-		log.Printf("accept %d: %s", resp.StatusCode, out)
-		return nil
+		return fmt.Errorf("accept %d: %s", resp.StatusCode, out)
+
 	}
 	return nil
 }
