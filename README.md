@@ -1,5 +1,9 @@
 # OpenAI Realtime API Voice Assistant with SIP Integration
 
+<img width="1920" height="1080" alt="Diagram" src="https://github.com/user-attachments/assets/eb1b6577-31ad-481e-9f3a-fa7f1e5b360e" />
+
+
+
 This Go-based application connects phone calls to OpenAI's Realtime API using SIP (Session Initiation Protocol). It enables natural voice conversations with AI by handling incoming calls through webhooks and establishing real-time WebSocket connections.
 
 ## Features
