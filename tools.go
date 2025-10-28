@@ -650,7 +650,6 @@ func executeCreateOrGetPatient(argsJSON string) any {
     `, nationalID).Scan(&patientID, &firstName, &lastName, &existingPhone)
 
 	if err == sql.ErrNoRows {
-		// Patient doesn't exist - need name to create
 		if args.FirstName == "" || args.LastName == "" {
 			return map[string]any{
 				"error":       "patient_not_found_need_name",
@@ -659,7 +658,6 @@ func executeCreateOrGetPatient(argsJSON string) any {
 			}
 		}
 
-		// Create new patient - use ON CONFLICT ... DO UPDATE to handle race conditions
 		phone := ""
 		if args.Phone != "" {
 			phone = strings.ReplaceAll(args.Phone, "-", "")
@@ -669,20 +667,39 @@ func executeCreateOrGetPatient(argsJSON string) any {
 		err = DB.QueryRow(`
             INSERT INTO patients (first_name, last_name, national_id, phone)
             VALUES ($1, $2, $3, NULLIF($4, ''))
-            ON CONFLICT (national_id) DO UPDATE 
-            SET phone = COALESCE(EXCLUDED.phone, patients.phone)
-            RETURNING patient_id, first_name, last_name
-        `, args.FirstName, args.LastName, nationalID, phone).Scan(&patientID, &firstName, &lastName)
+            ON CONFLICT (national_id) DO NOTHING
+            RETURNING patient_id, first_name, last_name, phone
+        `, args.FirstName, args.LastName, nationalID, phone).Scan(&patientID, &firstName, &lastName, &existingPhone)
 
 		if err != nil {
-			return map[string]any{"error": fmt.Sprintf("failed to create patient: %v", err)}
+			err = DB.QueryRow(`
+                SELECT patient_id, first_name, last_name, phone
+                FROM patients
+                WHERE national_id = $1
+            `, nationalID).Scan(&patientID, &firstName, &lastName, &existingPhone)
+
+			if err != nil {
+				return map[string]any{"error": fmt.Sprintf("failed to retrieve patient: %v", err)}
+			}
+
+			log.Printf("DEBUG: create_or_get_patient - Patient already existed: national_id=%s, patient_id=%d, name=%s %s",
+				nationalID, patientID, firstName.String, lastName.String)
+
+			return map[string]any{
+				"patient_id": patientID,
+				"created":    false,
+				"first_name": firstName.String,
+				"last_name":  lastName.String,
+				"message":    fmt.Sprintf("נמצא מטופל קיים: %s %s", firstName.String, lastName.String),
+			}
 		}
 
-		wasCreated := firstName.String == args.FirstName && lastName.String == args.LastName
+		log.Printf("DEBUG: create_or_get_patient - Created new patient: national_id=%s, patient_id=%d, name=%s %s",
+			nationalID, patientID, firstName.String, lastName.String)
 
 		return map[string]any{
 			"patient_id": patientID,
-			"created":    wasCreated,
+			"created":    true,
 			"first_name": firstName.String,
 			"last_name":  lastName.String,
 			"message":    fmt.Sprintf("נוצר מטופל חדש: %s %s", firstName.String, lastName.String),
@@ -703,6 +720,9 @@ func executeCreateOrGetPatient(argsJSON string) any {
             WHERE patient_id = $2
         `, phone, patientID)
 	}
+
+	log.Printf("DEBUG: create_or_get_patient - Found existing patient: national_id=%s, patient_id=%d, name=%s %s",
+		nationalID, patientID, firstName.String, lastName.String)
 
 	return map[string]any{
 		"patient_id": patientID,

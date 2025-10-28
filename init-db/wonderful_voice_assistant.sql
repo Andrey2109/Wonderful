@@ -1,5 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
 DROP TABLE IF EXISTS "public"."specialties";
 -- Sequence and defined type
 CREATE SEQUENCE IF NOT EXISTS specialties_specialty_id_seq;
@@ -35,6 +33,27 @@ CREATE TABLE "public"."doctors" (
 -- Indices
 CREATE INDEX doctors_name_trgm_idx ON public.doctors USING gin ((((first_name || ' '::text) || last_name)) gin_trgm_ops);
 
+DROP TABLE IF EXISTS "public"."doctor_branches";
+-- Sequence and defined type
+CREATE SEQUENCE IF NOT EXISTS doctor_branches_doctor_branch_id_seq;
+
+-- Table Definition
+CREATE TABLE "public"."doctor_branches" (
+    "doctor_branch_id" int8 NOT NULL DEFAULT nextval('doctor_branches_doctor_branch_id_seq'::regclass),
+    "doctor_id" int8 NOT NULL,
+    "branch_id" int4 NOT NULL,
+    "active" bool NOT NULL DEFAULT true,
+    CONSTRAINT "doctor_branches_branch_id_fkey" FOREIGN KEY ("branch_id") REFERENCES "public"."branches"("branch_id") ON DELETE CASCADE,
+    CONSTRAINT "doctor_branches_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "public"."doctors"("doctor_id") ON DELETE CASCADE,
+    PRIMARY KEY ("doctor_branch_id")
+);
+
+
+-- Indices
+CREATE UNIQUE INDEX doctor_branches_doctor_id_branch_id_key ON public.doctor_branches USING btree (doctor_id, branch_id);
+CREATE INDEX doctor_branches_doctor_idx ON public.doctor_branches USING btree (doctor_id) WHERE active;
+CREATE INDEX doctor_branches_branch_idx ON public.doctor_branches USING btree (branch_id) WHERE active;
+
 DROP TABLE IF EXISTS "public"."branches";
 -- Sequence and defined type
 CREATE SEQUENCE IF NOT EXISTS branches_branch_id_seq;
@@ -56,27 +75,6 @@ CREATE TABLE "public"."branches" (
 -- Indices
 CREATE INDEX branches_city_district_idx ON public.branches USING btree (city, district);
 
-DROP TABLE IF EXISTS "public"."doctor_branches";
--- Sequence and defined type
-CREATE SEQUENCE IF NOT EXISTS doctor_branches_doctor_branch_id_seq;
-
--- Table Definition
-CREATE TABLE "public"."doctor_branches" (
-    "doctor_branch_id" int8 NOT NULL DEFAULT nextval('doctor_branches_doctor_branch_id_seq'::regclass),
-    "doctor_id" int8 NOT NULL,
-    "branch_id" int4 NOT NULL,
-    "active" bool NOT NULL DEFAULT true,
-    CONSTRAINT "doctor_branches_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "public"."doctors"("doctor_id") ON DELETE CASCADE,
-    CONSTRAINT "doctor_branches_branch_id_fkey" FOREIGN KEY ("branch_id") REFERENCES "public"."branches"("branch_id") ON DELETE CASCADE,
-    PRIMARY KEY ("doctor_branch_id")
-);
-
-
--- Indices
-CREATE UNIQUE INDEX doctor_branches_doctor_id_branch_id_key ON public.doctor_branches USING btree (doctor_id, branch_id);
-CREATE INDEX doctor_branches_doctor_idx ON public.doctor_branches USING btree (doctor_id) WHERE active;
-CREATE INDEX doctor_branches_branch_idx ON public.doctor_branches USING btree (branch_id) WHERE active;
-
 DROP TABLE IF EXISTS "public"."doctor_hours";
 -- Table Definition
 CREATE TABLE "public"."doctor_hours" (
@@ -92,6 +90,42 @@ CREATE TABLE "public"."doctor_hours" (
 
 -- Indices
 CREATE INDEX doctor_hours_lookup_idx ON public.doctor_hours USING btree (doctor_branch_id, dow);
+
+DROP TABLE IF EXISTS "public"."appointments";
+DROP TYPE IF EXISTS "public"."appointment_status";
+CREATE TYPE "public"."appointment_status" AS ENUM ('scheduled', 'completed', 'cancelled', 'no_show', 'pending', 'rescheduled');
+
+-- Table Definition
+CREATE TABLE "public"."appointments" (
+    "appointment_id" uuid NOT NULL DEFAULT gen_random_uuid(),
+    "doctor_branch_id" int8 NOT NULL,
+    "doctor_id" int8 NOT NULL,
+    "branch_id" int4 NOT NULL,
+    "patient_id" int8 NOT NULL,
+    "start_at" timestamptz NOT NULL,
+    "end_at" timestamptz NOT NULL,
+    "status" "public"."appointment_status" NOT NULL DEFAULT 'scheduled'::appointment_status,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "created_by" text,
+    "cancellation_reason" text,
+    "cancelled_at" timestamptz,
+    "slot" tstzrange,
+    CONSTRAINT "appointments_branch_id_fkey" FOREIGN KEY ("branch_id") REFERENCES "public"."branches"("branch_id"),
+    CONSTRAINT "appointments_doctor_branch_id_fkey" FOREIGN KEY ("doctor_branch_id") REFERENCES "public"."doctor_branches"("doctor_branch_id"),
+    CONSTRAINT "appointments_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "public"."doctors"("doctor_id"),
+    CONSTRAINT "appointments_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "public"."patients"("patient_id"),
+    PRIMARY KEY ("appointment_id")
+);
+
+
+-- Indices
+CREATE INDEX appointments_slot_gist_idx ON public.appointments USING gist (slot);
+CREATE INDEX no_overlap_per_doctor ON public.appointments USING gist (doctor_id, slot) WHERE (status = ANY (ARRAY['scheduled'::appointment_status, 'pending'::appointment_status, 'rescheduled'::appointment_status]));
+CREATE INDEX appt_doctor_time_idx ON public.appointments USING btree (doctor_id, start_at);
+CREATE INDEX appt_branch_time_idx ON public.appointments USING btree (branch_id, start_at);
+CREATE INDEX appt_patient_time_idx ON public.appointments USING btree (patient_id, start_at);
+CREATE INDEX appt_future_active_doctor_idx ON public.appointments USING btree (doctor_id, start_at) WHERE (status = ANY (ARRAY['scheduled'::appointment_status, 'pending'::appointment_status, 'rescheduled'::appointment_status]));
+CREATE INDEX appt_future_active_branch_idx ON public.appointments USING btree (branch_id, start_at) WHERE (status = ANY (ARRAY['scheduled'::appointment_status, 'pending'::appointment_status, 'rescheduled'::appointment_status]));
 
 DROP TABLE IF EXISTS "public"."patients";
 -- Sequence and defined type
@@ -114,42 +148,6 @@ CREATE UNIQUE INDEX patients_phone_key ON public.patients USING btree (phone);
 CREATE INDEX patients_name_trgm_idx ON public.patients USING gin ((((first_name || ' '::text) || last_name)) gin_trgm_ops);
 CREATE UNIQUE INDEX patients_national_id_key ON public.patients USING btree (national_id);
 CREATE INDEX patients_phone_idx ON public.patients USING btree (phone) WHERE (phone IS NOT NULL);
-
-DROP TABLE IF EXISTS "public"."appointments";
-DROP TYPE IF EXISTS "public"."appointment_status";
-CREATE TYPE "public"."appointment_status" AS ENUM ('scheduled', 'completed', 'cancelled', 'no_show', 'pending', 'rescheduled');
-
--- Table Definition
-CREATE TABLE "public"."appointments" (
-    "appointment_id" uuid NOT NULL DEFAULT gen_random_uuid(),
-    "doctor_branch_id" int8 NOT NULL,
-    "doctor_id" int8 NOT NULL,
-    "branch_id" int4 NOT NULL,
-    "patient_id" int8 NOT NULL,
-    "start_at" timestamptz NOT NULL,
-    "end_at" timestamptz NOT NULL,
-    "status" "public"."appointment_status" NOT NULL DEFAULT 'scheduled'::appointment_status,
-    "created_at" timestamptz NOT NULL DEFAULT now(),
-    "created_by" text,
-    "cancellation_reason" text,
-    "cancelled_at" timestamptz,
-    "slot" tstzrange,
-    CONSTRAINT "appointments_doctor_branch_id_fkey" FOREIGN KEY ("doctor_branch_id") REFERENCES "public"."doctor_branches"("doctor_branch_id"),
-    CONSTRAINT "appointments_doctor_id_fkey" FOREIGN KEY ("doctor_id") REFERENCES "public"."doctors"("doctor_id"),
-    CONSTRAINT "appointments_branch_id_fkey" FOREIGN KEY ("branch_id") REFERENCES "public"."branches"("branch_id"),
-    CONSTRAINT "appointments_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "public"."patients"("patient_id"),
-    PRIMARY KEY ("appointment_id")
-);
-
-
--- Indices
-CREATE INDEX appointments_slot_gist_idx ON public.appointments USING gist (slot);
-CREATE INDEX no_overlap_per_doctor ON public.appointments USING gist (doctor_id, slot) WHERE (status = ANY (ARRAY['scheduled'::appointment_status, 'pending'::appointment_status, 'rescheduled'::appointment_status]));
-CREATE INDEX appt_doctor_time_idx ON public.appointments USING btree (doctor_id, start_at);
-CREATE INDEX appt_branch_time_idx ON public.appointments USING btree (branch_id, start_at);
-CREATE INDEX appt_patient_time_idx ON public.appointments USING btree (patient_id, start_at);
-CREATE INDEX appt_future_active_doctor_idx ON public.appointments USING btree (doctor_id, start_at) WHERE (status = ANY (ARRAY['scheduled'::appointment_status, 'pending'::appointment_status, 'rescheduled'::appointment_status]));
-CREATE INDEX appt_future_active_branch_idx ON public.appointments USING btree (branch_id, start_at) WHERE (status = ANY (ARRAY['scheduled'::appointment_status, 'pending'::appointment_status, 'rescheduled'::appointment_status]));
 
 INSERT INTO "public"."specialties" ("specialty_id", "name") VALUES
 (1, 'קרדיולוג'),
@@ -174,11 +172,11 @@ INSERT INTO "public"."specialties" ("specialty_id", "name") VALUES
 (20, 'המטולוג'),
 (21, 'פסיכיאטר'),
 (22, 'גריאטר'),
-(23, 'רפואת כאב'),
+(23, 'רופא עיניים'),
 (24, 'רופא שיניים'),
 (25, 'קרדיוכירורג'),
-(26, 'רפואת ספורט'),
-(27, 'רפואת שינה'),
+(26, 'רופא ספורט'),
+(27, 'רופא שינה'),
 (28, 'אלרגולוג'),
 (29, 'רופא שיקום'),
 (30, 'פתולוג');
@@ -937,10 +935,9 @@ INSERT INTO "public"."doctor_hours" ("doctor_branch_id", "dow", "start_time_loca
 (100, 3, '09:00:00', '17:00:00', 20),
 (100, 4, '09:00:00', '17:00:00', 20);
 INSERT INTO "public"."appointments" ("appointment_id", "doctor_branch_id", "doctor_id", "branch_id", "patient_id", "start_at", "end_at", "status", "created_at", "created_by", "cancellation_reason", "cancelled_at", "slot") VALUES
-('1b7ebda9-a554-4057-a4da-053d2168e1d0', 2, 1, 1, 102, '2025-10-19 06:00:00+00', '2025-10-19 06:20:00+00', 'scheduled', '2025-10-18 14:03:36.268806+00', 'voice_assistant', NULL, NULL, '["2025-10-19 06:00:00+00","2025-10-19 06:20:00+00")'),
-('22e0abe1-a88e-4667-8784-02b7a796ee99', 2, 1, 1, 101, '2025-10-19 06:20:00+00', '2025-10-19 06:40:00+00', 'cancelled', '2025-10-18 14:07:09.20096+00', 'voice_assistant', 'מבקש לשנות שעה', '2025-10-18 14:07:39.770346+00', '["2025-10-19 06:20:00+00","2025-10-19 06:40:00+00")'),
-('2d451be0-1ac2-4b47-9754-d3156481ebd7', 2, 1, 1, 101, '2025-10-20 06:00:00+00', '2025-10-20 06:20:00+00', 'scheduled', '2025-10-18 13:50:31.780903+00', 'voice_assistant', NULL, NULL, '["2025-10-20 06:00:00+00","2025-10-20 06:20:00+00")'),
-('e16871fe-2aed-44a3-bf22-6d76ba2408fd', 2, 1, 1, 101, '2025-10-19 07:40:00+00', '2025-10-19 08:00:00+00', 'scheduled', '2025-10-18 14:07:40.901853+00', 'voice_assistant', NULL, NULL, '["2025-10-19 07:40:00+00","2025-10-19 08:00:00+00")');
+('4f8c1e32-6415-48b2-b00c-ea18fab8da23', 91, 92, 46, 99, '2025-10-28 07:00:00+00', '2025-10-28 07:20:00+00', 'scheduled', '2025-10-27 15:26:21.010364+00', 'voice_assistant', NULL, NULL, NULL),
+('583ed80e-7e46-4e4c-80c6-531120bff714', 3, 4, 2, 101, '2025-10-26 07:00:00+00', '2025-10-26 07:20:00+00', 'scheduled', '2025-10-24 08:31:05.935072+00', 'voice_assistant', NULL, NULL, NULL),
+('7d5a8cec-a6f7-4ef0-b1c3-f618e4707d56', 3, 4, 2, 1, '2025-10-21 06:00:00+00', '2025-10-21 06:20:00+00', 'scheduled', '2025-10-21 03:54:24.734281+00', 'voice_assistant', NULL, NULL, NULL);
 INSERT INTO "public"."patients" ("patient_id", "first_name", "last_name", "phone", "national_id", "created_at") VALUES
 (1, 'נדב', 'ברוך', '052-7100-5100', '624096582', '2025-10-14 12:20:54.359649+00'),
 (2, 'יעל', 'אלמליח', '052-7101-5101', '906811526', '2025-10-14 12:20:54.359649+00'),
@@ -1042,5 +1039,4 @@ INSERT INTO "public"."patients" ("patient_id", "first_name", "last_name", "phone
 (98, 'גלי', 'ברוך', '052-7197-5197', '329498034', '2025-10-14 12:20:54.359649+00'),
 (99, 'קארין', 'דוד', '052-7198-5198', '374371151', '2025-10-14 12:20:54.359649+00'),
 (100, 'רותם', 'אלמליח', '052-7199-5199', '327307963', '2025-10-14 12:20:54.359649+00'),
-(101, 'אנדריי', 'מדוודב', '0526784300', '324568187', '2025-10-18 13:14:49.59722+00'),
-(102, '', '', NULL, '234568187', '2025-10-18 14:03:34.800478+00');
+(101, 'אנדריי', 'מדוודב', '0526784300', '324568187', '2025-10-18 13:14:49.59722+00');
